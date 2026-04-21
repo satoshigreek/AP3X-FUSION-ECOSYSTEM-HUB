@@ -452,6 +452,21 @@ h1.display, h2.display, .display {
 .tnum { font-feature-settings: "tnum"; font-variant-numeric: tabular-nums; }
 @keyframes pulse { 0%, 100% { opacity: 0.3; transform: translateY(0); } 50% { opacity: 1; transform: translateY(-2px); } }
 
+/* Hero lightning — title flashes when struck */
+.hero-title { transition: text-shadow .18s ease-out, color .18s ease-out; }
+.hero-title.hero-lit {
+  text-shadow:
+    0 0 14px color-mix(in oklch, var(--accent) 75%, transparent),
+    0 0 36px color-mix(in oklch, var(--accent) 35%, transparent),
+    0 0 64px color-mix(in oklch, #ffffff 22%, transparent);
+}
+@keyframes heroBoltFade {
+  0%   { opacity: 0; }
+  12%  { opacity: 1; }
+  35%  { opacity: 1; }
+  100% { opacity: 0; }
+}
+
 </style>
 <style>
   /* Splash (shown immediately, before React loads) */
@@ -1049,13 +1064,227 @@ function TriChainDiagram() {
   );
 }
 
+// HeroLightning — overlays the entire hero grid with bolts that occasionally
+// strike from the right (where the tri-chain diagram lives) into the H1 title.
+// Uses the same jagged-bolt math as TriChainDiagram so it feels like one storm.
+function HeroLightning({ titleRef, gridRef }) {
+  const overlayRef = useRef(null);
+  const [size, setSize] = useState({ w: 0, h: 0 });
+  const [strikes, setStrikes] = useState([]); // active strikes
+  const [hits, setHits] = useState({});       // wordIndex → expires-at timestamp
+
+  // Track grid size so the SVG viewBox matches.
+  useEffect(() => {
+    if (!gridRef.current) return;
+    const update = () => {
+      const r = gridRef.current.getBoundingClientRect();
+      setSize({ w: r.width, h: r.height });
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(gridRef.current);
+    return () => ro.disconnect();
+  }, [gridRef]);
+
+  // Compute target points inside the H1 (one per word).
+  const getTargets = () => {
+    if (!titleRef.current || !gridRef.current) return [];
+    const gridRect = gridRef.current.getBoundingClientRect();
+    // Walk the H1 and grab the bounding rects of its non-empty text-bearing children.
+    const h1 = titleRef.current;
+    const children = h1.querySelectorAll("span");
+    const candidates = [h1, ...children];
+    const targets = [];
+    candidates.forEach((el, i) => {
+      const r = el.getBoundingClientRect();
+      if (r.width < 30 || r.height < 20) return;
+      // Random point within the element, biased toward the upper half (where letters sit)
+      const px = r.left - gridRect.left + r.width * (0.2 + Math.random() * 0.6);
+      const py = r.top - gridRect.top + r.height * (0.25 + Math.random() * 0.5);
+      targets.push({ x: px, y: py, idx: i, el });
+    });
+    return targets;
+  };
+
+  // Origin for hero bolts: a point inside the right column where the tri-chain diagram lives.
+  const getOrigin = () => {
+    if (!gridRef.current) return { x: 0, y: 0 };
+    const r = gridRef.current.getBoundingClientRect();
+    // Pick from a few orbit points around the diagram's apparent center
+    const orbit = [
+      { x: r.width * 0.78, y: r.height * 0.35 }, // upper right
+      { x: r.width * 0.85, y: r.height * 0.55 }, // mid right
+      { x: r.width * 0.72, y: r.height * 0.20 }, // top
+      { x: r.width * 0.80, y: r.height * 0.70 }  // bottom right
+    ];
+    return orbit[Math.floor(Math.random() * orbit.length)];
+  };
+
+  // Same jagged-bolt generator the diagram uses, with a forks list.
+  const buildBolt = (a, b, seed, jitterScale = 1) => {
+    const dx = b.x - a.x, dy = b.y - a.y;
+    const dist = Math.hypot(dx, dy);
+    if (dist < 1) return { main: "", forks: [] };
+    const steps = 14;
+    const nx = -dy / dist, ny = dx / dist;
+    const rand = (s) => { let x = Math.sin(s * 9973.13) * 10000; return x - Math.floor(x); };
+    const pts = [{ x: a.x, y: a.y }];
+    for (let i = 1; i < steps; i++) {
+      const t = i / steps;
+      const cx = a.x + dx * t;
+      const cy = a.y + dy * t;
+      // taper jitter so the bolt arrives crisply at the target
+      const taper = Math.sin(t * Math.PI);
+      const jitter = (rand(seed + i) - 0.5) * 60 * jitterScale * taper;
+      pts.push({ x: cx + nx * jitter, y: cy + ny * jitter });
+    }
+    pts.push({ x: b.x, y: b.y });
+    let d = `M ${pts[0].x} ${pts[0].y}`;
+    for (let i = 1; i < pts.length; i++) d += ` L ${pts[i].x} ${pts[i].y}`;
+    const forks = [];
+    for (let i = 3; i < pts.length - 3; i += 3) {
+      if (rand(seed + i * 7) > 0.55) {
+        const p = pts[i];
+        const angle = Math.atan2(dy, dx) + (rand(seed + i * 11) - 0.5) * 1.6;
+        const len = 22 + rand(seed + i * 17) * 36;
+        const ex = p.x + Math.cos(angle) * len;
+        const ey = p.y + Math.sin(angle) * len;
+        forks.push(`M ${p.x} ${p.y} L ${(p.x + ex) / 2} ${(p.y + ey) / 2} L ${ex} ${ey}`);
+      }
+    }
+    return { main: d, forks };
+  };
+
+  // Fire a strike on a randomized cadence — mostly quiet, with bursts.
+  useEffect(() => {
+    let mounted = true;
+    let timeoutId;
+
+    const schedule = () => {
+      // cadence: 1.4s base, +/- 1.6s jitter, occasional rapid bursts
+      const burst = Math.random() < 0.18;
+      const delay = burst
+        ? 200 + Math.random() * 250
+        : 1400 + Math.random() * 1600;
+      timeoutId = setTimeout(() => {
+        if (!mounted) return;
+        const targets = getTargets();
+        if (targets.length === 0) {
+          schedule();
+          return;
+        }
+        const tgt = targets[Math.floor(Math.random() * targets.length)];
+        const origin = getOrigin();
+        const seed = Date.now() % 100000;
+        const id = `${seed}-${Math.random()}`;
+        const bolt = buildBolt(origin, tgt, seed, 1);
+        setStrikes(prev => [...prev, { id, bolt, target: tgt, born: Date.now() }]);
+        // mark the word as hit briefly
+        setHits(prev => ({ ...prev, [tgt.idx]: Date.now() + 280 }));
+        // remove the strike after its fade animation completes (~420ms)
+        setTimeout(() => {
+          if (!mounted) return;
+          setStrikes(prev => prev.filter(s => s.id !== id));
+        }, 420);
+        schedule();
+      }, delay);
+    };
+
+    schedule();
+    return () => { mounted = false; clearTimeout(timeoutId); };
+    // eslint-disable-next-line
+  }, []);
+
+  // Sweep stale hits roughly every 100ms so the title flash is brief
+  useEffect(() => {
+    const id = setInterval(() => {
+      setHits(prev => {
+        const now = Date.now();
+        const next = {};
+        let changed = false;
+        for (const k in prev) {
+          if (prev[k] > now) next[k] = prev[k]; else changed = true;
+        }
+        return changed ? next : prev;
+      });
+    }, 110);
+    return () => clearInterval(id);
+  }, []);
+
+  // Apply lit class to the H1 when any word is hit
+  useEffect(() => {
+    if (!titleRef.current) return;
+    if (Object.keys(hits).length > 0) {
+      titleRef.current.classList.add("hero-lit");
+    } else {
+      titleRef.current.classList.remove("hero-lit");
+    }
+  }, [hits, titleRef]);
+
+  if (size.w === 0) return null;
+
+  return (
+    <svg
+      ref={overlayRef}
+      viewBox={`0 0 ${size.w} ${size.h}`}
+      preserveAspectRatio="none"
+      style={{
+        position: "absolute", inset: 0, width: "100%", height: "100%",
+        pointerEvents: "none", zIndex: 3, overflow: "visible"
+      }}
+      aria-hidden="true"
+    >
+      <defs>
+        <filter id="heroBoltGlow" x="-60%" y="-60%" width="220%" height="220%">
+          <feGaussianBlur stdDeviation="5" result="b" />
+          <feGaussianBlur stdDeviation="2" in="SourceGraphic" result="b2" />
+          <feMerge>
+            <feMergeNode in="b" />
+            <feMergeNode in="b" />
+            <feMergeNode in="b2" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+        <radialGradient id="heroImpact">
+          <stop offset="0%"  stopColor="#ffffff" stopOpacity="1" />
+          <stop offset="35%" stopColor="var(--accent)" stopOpacity="0.85" />
+          <stop offset="100%" stopColor="var(--accent-2)" stopOpacity="0" />
+        </radialGradient>
+      </defs>
+      {strikes.map(s => (
+        <g key={s.id} filter="url(#heroBoltGlow)" style={{ animation: "heroBoltFade 0.42s ease-out forwards" }}>
+          {/* outer halo */}
+          <path d={s.bolt.main} fill="none" stroke="var(--accent)" strokeWidth="9" strokeOpacity="0.32" strokeLinecap="round" strokeLinejoin="round" />
+          {/* mid */}
+          <path d={s.bolt.main} fill="none" stroke="#a0f0ff" strokeWidth="3" strokeOpacity="0.75" strokeLinecap="round" strokeLinejoin="round" />
+          {/* core */}
+          <path d={s.bolt.main} fill="none" stroke="#ffffff" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+          {s.bolt.forks.map((f, i) => (
+            <g key={i}>
+              <path d={f} fill="none" stroke="var(--accent)" strokeWidth="3" strokeOpacity="0.32" strokeLinecap="round" strokeLinejoin="round" />
+              <path d={f} fill="none" stroke="#ffffff" strokeWidth="1" strokeOpacity="0.85" strokeLinecap="round" strokeLinejoin="round" />
+            </g>
+          ))}
+          {/* impact burst at the title */}
+          <circle cx={s.target.x} cy={s.target.y} r="22" fill="url(#heroImpact)" opacity="0.85" />
+          <circle cx={s.target.x} cy={s.target.y} r="4"  fill="#ffffff" />
+        </g>
+      ))}
+    </svg>
+  );
+}
+
+
 function OverviewSection() {
+  const heroRef = useRef(null);
+  const titleRef = useRef(null);
   return (
     <div className="section-wrap">
-      <div className="hero-grid" style={{ paddingTop: 24, marginBottom: 72 }}>
+      <div ref={heroRef} className="hero-grid" style={{ paddingTop: 24, marginBottom: 72, position: "relative" }}>
+        <HeroLightning gridRef={heroRef} titleRef={titleRef} />
         <div>
           <div className="eyebrow" style={{ marginBottom: 24, color: "var(--accent)" }}>// 01 — ECOSYSTEM OVERVIEW · {new Date().toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" }).toUpperCase()}</div>
-          <h1 style={{ fontFamily: "var(--f-display)", fontWeight: 600, fontSize: "clamp(31px, 5.6vw, 104px)", lineHeight: 0.92, letterSpacing: "-0.045em", margin: 0, textTransform: "uppercase", wordBreak: "keep-all", overflowWrap: "normal", hyphens: "none" }}>
+          <h1 ref={titleRef} className="hero-title" style={{ fontFamily: "var(--f-display)", fontWeight: 600, fontSize: "clamp(31px, 5.6vw, 104px)", lineHeight: 0.92, letterSpacing: "-0.045em", margin: 0, textTransform: "uppercase", wordBreak: "keep-all", overflowWrap: "normal", hyphens: "none", position: "relative", zIndex: 4 }}>
             AI NATIVE<br />
             <span style={{ fontWeight: 300, color: "var(--ink-3)" }}>FOR THE NEXT</span><br />
             ERA OF <span style={{ color: "var(--accent)" }}>CARDANO</span>.
