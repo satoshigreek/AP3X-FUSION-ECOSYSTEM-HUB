@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <meta name="theme-color" content="#07100C" />
 <title>AP3X FUSION — Ecosystem</title>
-<meta name="description" content="Apex Fusion ecosystem hub — a tri-chain (Prime, Vector, Nexus) for the next era of Cardano Powered by AI. Stake AP3X, bridge across chains, build on EVM or UTXO." />
+<meta name="description" content="Apex Fusion ecosystem hub — a tri-chain (Prime, Vector, Nexus) for the next era of Cardano. Stake AP3X, bridge across chains, build on EVM or UTXO." />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
@@ -640,10 +640,9 @@ const DAPPS = [
 
 const EXPLORERS = [
   { name: "Master Executive Dashboard", desc: "Unified analytics dashboard by SatoshiGreek — live market data, stake pools, all three chains, DEX liquidity, bridge stats", chains: ["prime","vector","nexus"], url: "https://satoshigreek.github.io/apex-dashboard/master-apex-executive.html", status: "beta", featured: true },
-  { name: "Prime Mainnet Explorer", desc: "Full block explorer for the Prime L1 chain — transactions, blocks, stake pools", chains: ["prime"], url: "https://explorer.prime.apexfusion.org", status: "live" },
-  { name: "Vector Explorer", desc: "Explore blocks, transactions, and native assets on the Vector UTXO L2 mainnet", chains: ["vector"], url: "https://explorer.vector.apexfusion.org", status: "live" },
-  { name: "Nexus Explorer (ApexScan)", desc: "EVM-compatible BlockScout explorer for the Nexus L2 mainnet", chains: ["nexus"], url: "https://nexus.apexscan.org", status: "live" },
-  { name: "Prime Testnet Explorer", desc: "Testnet explorer for Prime chain development and testing", chains: ["prime"], url: "https://explorer.testnet.prime.apexfusion.org", status: "testnet" }
+  { name: "Prime Mainnet Explorer", desc: "Full block explorer for the Prime L1 chain — transactions, blocks, stake pools", chains: ["prime"], url: "https://apexscan.org/en/", status: "live" },
+  { name: "Vector Explorer", desc: "Explore blocks, transactions, and native assets on the Vector UTXO L2 mainnet", chains: ["vector"], url: "https://vector.apexscan.org/en/", status: "live" },
+  { name: "Nexus Explorer (ApexScan)", desc: "EVM-compatible BlockScout explorer for the Nexus L2 mainnet", chains: ["nexus"], url: "https://nexus.apexscan.org", status: "live" }
 ];
 
 const SOCIALS = [
@@ -661,13 +660,37 @@ const EXCHANGES = [
   { name: "BitMart",  desc: "Global exchange — AP3X/USDT pair, listed May 2025",             url: "https://bitmart.com", status: "live" }
 ];
 
-const AGENTS_PREVIEW = [
-  { name: "Yield Optimizer", desc: "Auto-compounds staking rewards across Prime pools for maximum APY", chains: ["prime"], category: "DeFi", status: "concept" },
-  { name: "Bridge Arbitrage Bot", desc: "Monitors price differentials across Prime/Vector/Nexus and executes bridge swaps", chains: ["prime","vector","nexus"], category: "Trading", status: "concept" },
-  { name: "Governance Delegate", desc: "AI-powered voting agent that analyzes proposals and votes based on your preferences", chains: ["prime"], category: "Governance", status: "concept" },
-  { name: "Reputation Scout", desc: "Monitors ecosystem activity and suggests actions to improve your reputation score", chains: ["prime"], category: "Identity", status: "concept" },
-  { name: "Cross-Chain Portfolio Manager", desc: "Rebalances your AP3X holdings across all three chains based on market conditions", chains: ["prime","vector","nexus"], category: "Portfolio", status: "concept" },
-  { name: "NFT Sniper", desc: "Watches NFT drops across the ecosystem and executes purchases based on rarity filters", chains: ["nexus"], category: "NFT", status: "concept" }
+const AGENT_MODULES = [
+  {
+    module: "Module-1",
+    name: "Adversarial Auditing",
+    desc: "Stake-based dispute resolution — agents stake AP3X to challenge claims, with juries voting on outcomes. The trust layer for autonomous agent economies.",
+    chains: ["vector"],
+    tech: "Aiken / Plutus V3",
+    status: "live",
+    statusNote: "Contracts complete · simulator in progress",
+    repoUrl: "https://github.com/Apex-Fusion/vector-agent-modules/tree/master/Module-1"
+  },
+  {
+    module: "Module-3",
+    name: "Reputation Staking",
+    desc: "Reputation-weighted staking with endorsement and decay mechanics. Feeds into Module-1 jury selection so high-reputation agents arbitrate disputes.",
+    chains: ["vector"],
+    tech: "Aiken / Plutus V3",
+    status: "testnet",
+    statusNote: "In active development",
+    repoUrl: "https://github.com/Apex-Fusion/vector-agent-modules/tree/master/Module-3"
+  },
+  {
+    module: "Module-6",
+    name: "Governance Suggestion Engine",
+    desc: "Advisory governance — agents submit proposals, the Foundation adopts or rejects them, contributors earn AP3X rewards. 9/9 testnet tests passing.",
+    chains: ["vector"],
+    tech: "Aiken / Plutus V3",
+    status: "live",
+    statusNote: "Contracts complete · 9/9 testnet tests pass",
+    repoUrl: "https://github.com/Apex-Fusion/vector-agent-modules/tree/master/Module-6"
+  }
 ];
 
 const TOKEN_VARIANTS = [
@@ -1033,12 +1056,12 @@ function OverviewSection() {
         <div>
           <div className="eyebrow" style={{ marginBottom: 24, color: "var(--accent)" }}>// 01 — ECOSYSTEM OVERVIEW · {new Date().toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" }).toUpperCase()}</div>
           <h1 style={{ fontFamily: "var(--f-display)", fontWeight: 600, fontSize: "clamp(31px, 5.6vw, 104px)", lineHeight: 0.92, letterSpacing: "-0.045em", margin: 0, textTransform: "uppercase", wordBreak: "keep-all", overflowWrap: "normal", hyphens: "none" }}>
-            A TRI-CHAIN<br />
+            AI NATIVE<br />
             <span style={{ fontWeight: 300, color: "var(--ink-3)" }}>FOR THE NEXT</span><br />
             ERA OF <span style={{ color: "var(--accent)" }}>CARDANO</span>.
           </h1>
           <p className="lead" style={{ marginTop: 40, maxWidth: "56ch" }}>
-            AP3X FUSION unifies three purpose-built chains — Prime, Vector, and Nexus — behind a single token, AP3X. Stake Cardano-grade Ouroboros, transact on a UTXO L2, deploy Solidity on an EVM L2. All mainnet. All live.
+            AP3X FUSION is built for autonomous agents. A tri-chain architecture — Prime, Vector, Nexus — that gives AI parallel execution, deterministic costs, and zero MEV. Cardano-grade Ouroboros at the base, Solidity at the edge, all under one token.
           </p>
           <div style={{ display: "flex", gap: 10, marginTop: 40, flexWrap: "wrap" }}>
             <ExternalLink href="https://developers.apexfusion.org/documentation/l1-staking-basics" variant="filled">Start staking</ExternalLink>
@@ -1049,6 +1072,56 @@ function OverviewSection() {
         <div style={{ position: "relative" }}>
           <TriChainDiagram />
         </div>
+      </div>
+
+      {/* THE VECTOR EDGE — five value props that make Apex Fusion AI-native */}
+      <SectionHead num="01.5" title="The Vector Edge." kicker="why agents thrive here" />
+      <div style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+        gap: 0,
+        borderTop: "1px solid var(--rule-2)",
+        marginBottom: 80
+      }}>
+        {[
+          { num: "01", label: "Parallelism",     accent: "var(--vector)",
+            body: "Each UTxO is independent state. Agents transact simultaneously with zero interference — no global state, no lock ordering, no nonce management. Scales naturally with agent population." },
+          { num: "02", label: "Determinism",     accent: "var(--vector)",
+            body: "Exact cost and outcome known before submission. Invalid transactions rejected at zero cost. Succeed completely or fail entirely. No partial execution, no re-entrancy, no state corruption." },
+          { num: "03", label: "Predictability",  accent: "var(--vector)",
+            body: "Each transaction specifies exact inputs and outputs. No reordering advantage. Flash loans structurally impossible. Multi-step attacks observable and traceable via UTxO provenance." },
+          { num: "04", label: "Non-Extractive",  accent: "var(--vector)",
+            body: "No MEV. No frontrunning. No sandwich attacks. No shared global state to manipulate. The reordering games that extract billions from EVM users do not exist. Agents keep what they earn." },
+          { num: "05", label: "Speed",           accent: "var(--vector)",
+            body: "Four-second blocks. Sub-second optimistic finality. ~10× Cardano mainnet throughput. Migration to Ouroboros Tachys delivers dense block production with public slot leader schedules." }
+        ].map((v, i, arr) => (
+          <div key={v.num} style={{
+            padding: "32px 28px 36px",
+            borderRight: i < arr.length - 1 ? "1px solid var(--rule-2)" : "none",
+            borderBottom: "1px solid var(--rule-2)",
+            minWidth: 0,
+            position: "relative"
+          }}>
+            <div style={{
+              display: "flex", alignItems: "baseline", gap: 14,
+              borderTop: `2px solid ${v.accent}`,
+              paddingTop: 18, marginBottom: 18
+            }}>
+              <span className="mono" style={{
+                fontSize: 12, color: v.accent, letterSpacing: "0.14em", flexShrink: 0
+              }}>{v.num}</span>
+              <h3 style={{
+                fontFamily: "var(--f-display)", fontWeight: 600,
+                fontSize: 22, letterSpacing: "-0.015em", margin: 0,
+                color: "var(--ink)", textTransform: "uppercase", lineHeight: 1.05
+              }}>{v.label}</h3>
+            </div>
+            <p style={{
+              fontSize: 13.5, color: "var(--ink-3)",
+              lineHeight: 1.6, margin: 0
+            }}>{v.body}</p>
+          </div>
+        ))}
       </div>
 
       <div style={{ borderTop: "1px solid var(--ink)", borderBottom: "1px solid var(--rule-2)", padding: "36px 0", marginBottom: 80 }}>
@@ -1750,6 +1823,51 @@ function AgentsSection() {
         </p>
       </div>
 
+      {/* VECTOR AI DOCUMENTATION SPOTLIGHT */}
+      <div style={{
+        borderTop: "1px solid var(--rule)",
+        borderBottom: "1px solid var(--rule)",
+        padding: "44px 0",
+        marginBottom: 64,
+        position: "relative"
+      }}>
+        <div style={{
+          position: "absolute", inset: 0, pointerEvents: "none",
+          background: "radial-gradient(60% 80% at 75% 50%, color-mix(in oklch, var(--vector) 16%, transparent), transparent 70%)"
+        }} />
+        <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.5fr) minmax(240px, 1fr)", gap: 56, alignItems: "center", position: "relative" }} className="staking-spot">
+          <div>
+            <div className="eyebrow" style={{ color: "var(--vector)", marginBottom: 20 }}>// VECTOR AI · DEVELOPER PLATFORM</div>
+            <h2 className="serif" style={{ fontSize: "clamp(40px, 6vw, 84px)", lineHeight: 0.92, letterSpacing: "-0.035em", margin: "0 0 24px", fontWeight: 500 }}>
+              VECTOR <span className="serif-i">FOR AI</span> AGENTS.
+            </h2>
+            <p style={{ fontSize: 16, color: "var(--ink-2)", lineHeight: 1.55, margin: "0 0 20px", maxWidth: "60ch" }}>
+              The first UTXO blockchain with native AI agent support. A complete toolchain — MCP server, Python &amp; TypeScript SDKs, on-chain agent registry, DID identity, and a safety layer with spend limits and audit logs — so your agent can manage wallets, deploy contracts, and collaborate on-chain.
+            </p>
+            <p style={{ fontSize: 14, color: "var(--ink-3)", lineHeight: 1.6, margin: "0 0 28px", maxWidth: "60ch" }}>
+              Works with Claude, GPT, Gemini, and any MCP-compatible client. Plug into LangChain, CrewAI, or OpenClaw. ~13s finality, 4× Cardano TPS, 18+ MCP tools out of the box.
+            </p>
+            <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+              <ExternalLink href="https://apex-fusion.github.io/vector-ai-documentation/" variant="filled">Read the docs</ExternalLink>
+              <ExternalLink href="https://apex-fusion.github.io/vector-ai-documentation/quickstart/5-minute-start/">5-minute start</ExternalLink>
+            </div>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 0 }}>
+            {[
+              ["Finality",   "~13s",      "var(--good)"],
+              ["TPS",        "4× Cardano", "var(--vector)"],
+              ["MCP Tools",  "18+",       "var(--ink)"],
+              ["Contracts",  "Plutus V3", "var(--ink)"]
+            ].map(([k, v, c]) => (
+              <div key={k} style={{ padding: "20px 0", borderTop: "1px solid var(--rule-2)" }}>
+                <div className="eyebrow" style={{ marginBottom: 8 }}>{k}</div>
+                <div className="serif" style={{ fontSize: 26, lineHeight: 1, color: c, letterSpacing: "-0.02em" }}>{v}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 0, borderTop: "1px solid var(--ink)", marginBottom: 56 }}>
         {[
           ["Build",   "Visual canvas + code editor to create agents"],
@@ -1765,17 +1883,39 @@ function AgentsSection() {
         ))}
       </div>
 
-      <SectionHead num="11.b" title="Agent concepts" kicker="in development" />
+      <SectionHead num="11.b" title="Agent Modules" kicker="trust + incentive layer for autonomous agent economies">
+        <ExternalLink href="https://github.com/Apex-Fusion/vector-agent-modules" variant="subtle">View on GitHub</ExternalLink>
+      </SectionHead>
+      <p style={{ fontSize: 14.5, color: "var(--ink-3)", lineHeight: 1.6, margin: "0 0 28px", maxWidth: "72ch" }}>
+        Built in Aiken (Plutus V3) on Vector. Each module implements a distinct economic mechanism — together they form a complete trust and incentive layer for autonomous agents. Modules interlock: reputation feeds dispute resolution, governance directs treasury.
+      </p>
       <div style={{ borderTop: "1px solid var(--rule-2)" }}>
-        {AGENTS_PREVIEW.map((a, i) => (
-          <div key={i} className="agents-row" style={{ display: "grid", gridTemplateColumns: "minmax(50px, 60px) minmax(0, 1.2fr) minmax(0, 2fr) minmax(140px, 200px) minmax(100px, 130px) auto", padding: "22px 0", borderBottom: "1px solid var(--rule-2)", gap: 24, alignItems: "center" }}>
-            <div className="mono" style={{ fontSize: 10.5, color: "var(--ink-4)" }}>{String(i + 1).padStart(2, "0")}</div>
-            <div className="serif" style={{ fontSize: 20, letterSpacing: "-0.01em" }}>{a.name}</div>
-            <div style={{ fontSize: 13, color: "var(--ink-3)", lineHeight: 1.5 }}>{a.desc}</div>
-            <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>{a.chains.map(c => <ChainChip key={c} chain={c} />)}</div>
-            <div className="eyebrow">{a.category}</div>
+        {AGENT_MODULES.map((a, i) => (
+          <a key={i} href={a.repoUrl} target="_blank" rel="noopener noreferrer"
+            className="agents-row"
+            style={{
+              display: "grid",
+              gridTemplateColumns: "minmax(70px, 90px) minmax(0, 1.4fr) minmax(0, 2.2fr) minmax(110px, 140px) minmax(100px, 130px) auto",
+              padding: "26px 0",
+              borderBottom: "1px solid var(--rule-2)",
+              gap: 24,
+              alignItems: "center",
+              textDecoration: "none",
+              color: "inherit",
+              transition: "padding .25s, background .2s"
+            }}
+            onMouseEnter={e => { e.currentTarget.style.paddingLeft = "6px"; e.currentTarget.style.background = "color-mix(in oklch, var(--paper) 93%, var(--ink))"; }}
+            onMouseLeave={e => { e.currentTarget.style.paddingLeft = "0"; e.currentTarget.style.background = "transparent"; }}>
+            <div className="mono" style={{ fontSize: 11, color: "var(--vector)", letterSpacing: "0.12em" }}>{a.module}</div>
+            <div>
+              <div className="serif" style={{ fontSize: 22, letterSpacing: "-0.01em", lineHeight: 1.15 }}>{a.name}</div>
+              <div className="mono" style={{ fontSize: 10, color: "var(--ink-4)", letterSpacing: "0.06em", marginTop: 4 }}>{a.statusNote}</div>
+            </div>
+            <div style={{ fontSize: 13.5, color: "var(--ink-3)", lineHeight: 1.55 }}>{a.desc}</div>
+            <div className="mono" style={{ fontSize: 10.5, color: "var(--ink-3)", letterSpacing: "0.06em" }}>{a.tech}</div>
             <StatusPill status={a.status} />
-          </div>
+            <span className="serif-i" style={{ fontSize: 22, color: "var(--ink-3)" }}>↗</span>
+          </a>
         ))}
       </div>
     </div>
@@ -2106,3 +2246,4 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App />);
 
 </body>
 </html>
+
