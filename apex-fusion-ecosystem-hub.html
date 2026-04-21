@@ -671,8 +671,9 @@ const SOCIALS = [
 ];
 
 const EXCHANGES = [
-  { name: "LBANK",    desc: "First exchange listing — AP3X/USDT pair, live since Feb 2025", url: "https://lbank.com",   status: "live" },
-  { name: "BitMart",  desc: "Global exchange — AP3X/USDT pair, listed May 2025",             url: "https://bitmart.com", status: "live" }
+  { name: "LBank",         desc: "First exchange listing — AP3X/USDT pair, live since Feb 2025",                                       url: "https://lbank.one/s/vhnOox5", status: "live" },
+  { name: "BitMart",       desc: "Global exchange — AP3X/USDT pair, listed May 2025",                                                  url: "https://bitmart.com",         status: "live" },
+  { name: "Coinbase DEX+", desc: "On-chain liquidity for bAP3X on Base — trade directly from a Coinbase wallet, no centralized listing required", url: "https://www.coinbase.com/price/based-apex-token-base-0x9208d82f121806a34a39bb90733b4c5c54f3993e-token?utm_campaign=rt_i_m_w_m_acq_ugc_soc_0_asset&utm_source=ugc&utm_platform=iOS", status: "live" }
 ];
 
 const AGENT_MODULES = [
@@ -1444,7 +1445,7 @@ function OverviewSection() {
           { label: "Skyline Bridge", kicker: "External", url: "https://skylinebridge.tech/landing" },
           { label: "Master Dashboard", kicker: "Live analytics", url: "https://satoshigreek.github.io/apex-dashboard/master-apex-executive.html" },
           { label: "Developer Portal", kicker: "Build", url: "https://developers.apexfusion.org" },
-          { label: "Buy AP3X", kicker: "LBANK · BitMart", url: "https://coinmarketcap.com/currencies/apex-fusion/" }
+          { label: "Buy AP3X", kicker: "LBank · direct", url: "https://lbank.one/s/vhnOox5" }
         ].map((l, i) => (
           <a key={i} href={l.url} target="_blank" rel="noopener noreferrer"
             style={{ padding: "24px 20px", borderBottom: "1px solid var(--rule-2)", borderRight: "1px solid var(--rule-2)", textDecoration: "none", color: "inherit", display: "flex", flexDirection: "column", justifyContent: "space-between", minHeight: 120, transition: "background .2s" }}
