@@ -396,6 +396,62 @@ a { color: inherit; -webkit-tap-highlight-color: transparent; }
   .tachys-delta-num { font-size: clamp(64px, 24vw, 88px) !important; }
 }
 
+/* ========== NETWORK SECTION — MOBILE LAYOUT ========== */
+/* Live-topology pulse indicator */
+.network-globe-pulse {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--accent-2);
+  box-shadow: 0 0 8px var(--accent-2);
+  animation: netPulse 1.8s ease-in-out infinite;
+  flex-shrink: 0;
+}
+@keyframes netPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.75); }
+}
+
+@media (max-width: 900px) {
+  .network-globe-wrap {
+    grid-template-columns: 1fr !important;
+  }
+  .network-globe-col {
+    border-right: none !important;
+    border-bottom: 1px solid var(--rule-2);
+  }
+  .network-entities,
+  .network-l2 {
+    grid-template-columns: 1fr !important;
+  }
+  .network-entities > div,
+  .network-l2 > div {
+    border-right: none !important;
+    border-bottom: 1px solid var(--rule-2);
+    padding: 24px 18px !important;
+  }
+  .network-entities > div:last-child,
+  .network-l2 > div:last-child {
+    border-bottom: none;
+  }
+  .network-clusters {
+    grid-template-columns: 1fr 1fr !important;
+  }
+  .network-clusters > div:nth-child(2n) { border-right: none !important; }
+  .network-clusters > div:nth-child(-n+2) { border-bottom: 1px solid var(--rule-2); }
+  .network-clusters > div { padding: 18px 14px !important; }
+  .network-footnote > div[style*="grid-template-columns"] {
+    grid-template-columns: 1fr !important;
+    gap: 18px !important;
+  }
+  .network-foot { flex-direction: column; align-items: flex-start !important; gap: 14px !important; }
+}
+@media (max-width: 480px) {
+  .network-clusters { grid-template-columns: 1fr !important; }
+  .network-clusters > div:nth-child(-n+3) { border-bottom: 1px solid var(--rule-2); }
+  .network-clusters > div { border-right: none !important; }
+  .network-entities h3 { font-size: 22px !important; }
+  .network-stats-col { padding: 24px 18px !important; }
+}
+
 /* Overlay backdrop when nav drawer is open on mobile */
 @media (max-width: 900px) {
   .nav-backdrop {
@@ -1071,6 +1127,9 @@ const SECTIONS = [{
   id: "exchanges",
   label: "Exchanges"
 }, {
+  id: "network",
+  label: "Network"
+}, {
   id: "tachys",
   label: "Tachýs"
 }, {
@@ -1154,7 +1213,7 @@ const DAPPS = [{
   official: true
 }, {
   name: "AP3X Staking",
-  desc: "Liquid native staking with ~10% APY — delegate to 260+ stake pools",
+  desc: "Liquid native staking with ~10% APY — delegate to 300+ stake pools",
   chains: ["prime"],
   category: "Staking",
   url: "https://apexfusion.org",
@@ -2611,7 +2670,7 @@ function OverviewSection() {
       letterSpacing: "-0.03em"
     }
   }, /*#__PURE__*/React.createElement(CountUp, {
-    to: 260
+    to: 300
   }), /*#__PURE__*/React.createElement("span", {
     style: {
       fontSize: 28,
@@ -3772,7 +3831,7 @@ function StakingSection() {
       margin: "0 0 32px",
       maxWidth: "56ch"
     }
-  }, "Prime runs on Ouroboros PoS \u2014 the same consensus that secures Cardano. Pick any of 260+ community-run stake pools, delegate from Eternl, keep custody. Rewards settle every 5 days. No slashing. No lock-ups."), /*#__PURE__*/React.createElement("div", {
+  }, "Prime runs on Ouroboros PoS \u2014 the same consensus that secures Cardano. Pick any of 300+ community-run stake pools, delegate from Eternl, keep custody. Rewards settle every 5 days. No slashing. No lock-ups."), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       gap: 12,
@@ -3911,7 +3970,7 @@ function StakingSection() {
       gap: 0,
       borderTop: "1px solid var(--rule-2)"
     }
-  }, [["01", "Get a wallet", "Install Eternl — the recommended UTXO wallet for Prime, Vector, and Cardano."], ["02", "Fund with AP3X", "Buy AP3X on LBANK or BitMart and send it to your wallet."], ["03", "Pick a pool", "Open Eternl's delegation tab and browse 260+ community-run Prime stake pools."], ["04", "Confirm delegation", "Sign the transaction — tokens stay in your wallet, rewards flow in."]].map(([n, t, d], i) => /*#__PURE__*/React.createElement("div", {
+  }, [["01", "Get a wallet", "Install Eternl — the recommended UTXO wallet for Prime, Vector, and Cardano."], ["02", "Fund with AP3X", "Buy AP3X on LBANK or BitMart and send it to your wallet."], ["03", "Pick a pool", "Open Eternl's delegation tab and browse 300+ community-run Prime stake pools."], ["04", "Confirm delegation", "Sign the transaction — tokens stay in your wallet, rewards flow in."]].map(([n, t, d], i) => /*#__PURE__*/React.createElement("div", {
     key: n,
     style: {
       padding: "28px 24px 28px 0",
@@ -4315,13 +4374,553 @@ function ExchangesSection() {
     }
   }, v)))));
 }
+function NetworkSection() {
+  const e = React.createElement;
+  const [active, setActive] = useState(null);
+  const [paused, setPaused] = useState(false);
+
+  const svgRef = useRef(null);
+  const landRef = useRef(null);
+  const graticuleRef = useRef(null);
+  const nodeRefs = useRef([]);
+  const lambdaRef = useRef(20 * Math.PI / 180);  // initial: ~20°, near prime meridian
+  const phiRef = useRef(-20 * Math.PI / 180);    // initial: slight northward tilt
+  const pausedRef = useRef(false);
+
+  // Raw geodata — embedded at build time
+  const LAND = [[[-180,-16.07],[-180,-16.56],[179.36,-16.8],[180,-16.07],[-180,-16.07]],[[39.2,-4.68],[39.19,-8.49],[40.32,-10.32],[40.78,-14.69],[39.45,-16.72],[37.41,-17.59],[34.79,-19.78],[35.56,-22.09],[35.04,-24.48],[32.57,-25.73],[32.83,-26.74],[32.46,-28.3],[28.22,-32.77],[25.78,-33.95],[22.57,-33.86],[19.61,-34.82],[18.24,-33.87],[18.22,-31.66],[16.35,-28.58],[15.21,-27.09],[14.26,-22.11],[11.73,-17.3],[12.74,-13.14],[13.64,-12.04],[13.24,-8.56],[12.32,-6.1],[12.18,-5.79],[11.91,-5.04],[11.09,-3.98],[8.8,-1.11],[9.49,1.01],[9.65,2.28],[8.5,4.77],[5.9,4.26],[4.33,6.27],[2.69,6.26],[1.87,6.14],[1.06,5.93],[-2.86,5],[-7.71,4.36],[-11.44,6.79],[-13.25,8.9],[-15.13,11.04],[-16.68,12.39],[-16.84,13.15],[-16.71,13.6],[-17.62,14.73],[-16.46,16.14],[-16.28,20.09],[-17.06,21],[-17.02,21.42],[-14.44,26.25],[-9.56,29.93],[-8.66,33.24],[-6.91,34.11],[-5.93,35.76],[-2.17,35.17],[1.47,36.61],[8.42,36.95],[10.6,36.41],[10.15,34.33],[11.49,33.14],[15.24,32.27],[15.71,31.38],[19.09,30.27],[20.85,32.71],[22.89,32.64],[25.17,31.57],[28.91,30.87],[30.09,31.47],[34.27,31.22],[35.13,33.09],[36,34.65],[36.15,35.82],[34.71,36.8],[32.51,36.11],[27.64,36.66],[26.17,39.46],[29.24,41.22],[31.15,41.09],[35.17,42.04],[38.35,40.95],[41.55,41.54],[39.95,43.44],[36.68,45.24],[38.22,47.1],[35.01,45.74],[36.33,45.11],[33.88,44.36],[33.44,45.97],[30.75,46.58],[29.6,45.29],[28.56,43.71],[28,42.01],[28.81,41.06],[26.06,40.82],[22.82,40.48],[24.02,38.22],[21.67,36.84],[20.15,39.63],[19.37,41.88],[18.45,42.48],[16.01,43.51],[13.71,45.5],[13.94,45.59],[12.33,45.38],[12.59,44.09],[15.89,41.54],[18.38,40.36],[16.1,37.99],[15.41,40.05],[12.89,41.25],[8.89,44.37],[7.44,43.69],[4.56,43.4],[2.99,42.47],[0.81,41.01],[0.11,38.74],[-2.15,36.67],[-5.38,35.95],[-7.45,37.1],[-8.9,36.87],[-9.53,38.74],[-9.03,41.88],[-7.98,43.75],[-1.9,43.42],[-1.19,46.01],[-4.59,48.68],[-1.62,48.64],[2.51,51.15],[3.31,51.35],[4.71,53.09],[6.91,53.48],[8.53,54.96],[8.09,56.54],[10.58,57.73],[9.92,54.98],[10.94,54.01],[14.12,53.76],[17.62,54.85],[19.66,54.43],[21.27,55.19],[21.05,56.03],[21.58,57.41],[24.31,57.79],[23.34,59.19],[27.98,59.48],[28.07,60.5],[22.87,59.85],[21.32,60.72],[21.06,62.61],[25.4,65.11],[23.9,66.01],[22.18,65.72],[21.37,64.41],[17.85,62.75],[17.12,61.34],[18.79,60.08],[16.83,58.72],[15.88,56.1],[12.94,55.36],[11.03,58.86],[8.38,58.31],[5.66,58.59],[4.99,61.97],[10.53,64.49],[14.76,67.81],[19.18,69.82],[23.02,70.2],[24.55,71.03],[28.16,71.19],[31.29,70.45],[31.1,69.56],[36.51,69.06],[40.29,67.93],[41.13,66.79],[38.38,66],[33.92,66.76],[34.94,64.41],[37.01,63.85],[37.18,65.14],[39.59,64.52],[39.76,65.5],[44.53,66.76],[43.45,68.57],[46.25,68.25],[46.35,66.67],[48.14,67.52],[53.72,68.86],[53.49,68.2],[58.8,68.88],[59.94,68.28],[60.55,69.85],[63.5,69.55],[68.51,68.09],[69.18,68.62],[66.7,71.03],[69.94,73.04],[72.59,72.78],[71.85,71.41],[72.56,69.02],[73.67,68.41],[71.28,66.32],[72.42,66.17],[75.05,67.76],[73.1,71.45],[79.65,72.32],[81.5,71.75],[80.51,73.65],[86.82,73.94],[87.17,75.12],[93.24,76.05],[96.68,75.92],[100.76,76.43],[101.99,77.29],[111.08,76.71],[113.89,75.33],[109.4,74.18],[113.53,73.34],[115.57,73.75],[119.02,73.12],[123.2,72.97],[123.26,73.74],[128.59,73.04],[128.46,71.98],[131.29,70.79],[132.25,71.84],[139.87,71.49],[140.47,72.85],[149.5,72.2],[152.97,70.84],[159,70.87],[160.94,69.44],[167.84,69.58],[169.58,68.69],[170.45,70.1],[178.6,69.4],[-180,68.96],[-174.57,67.06],[-171.86,66.91],[-169.9,65.98],[-172.53,65.44],[-173.89,64.28],[-176.21,65.36],[-179.88,65.87],[-180,64.98],[179.99,64.97],[177.41,64.61],[179.37,62.98],[173.68,61.65],[170.33,59.88],[168.9,60.57],[166.29,59.79],[163.54,59.87],[162.02,58.24],[163.19,57.62],[162.12,54.85],[160.37,54.34],[156.79,51.01],[155.43,55.38],[156.81,57.83],[158.36,58.06],[163.67,61.14],[164.47,62.55],[160.12,60.54],[159.3,61.77],[156.72,61.43],[154.22,59.76],[155.04,59.15],[151.26,58.78],[151.34,59.5],[142.2,59.04],[135.13,54.73],[138.16,53.75],[139.9,54.19],[141.35,53.09],[140.06,48.45],[134.87,43.4],[132.28,43.28],[130.78,42.22],[127.53,39.76],[128.35,38.61],[129.46,36.78],[129.09,35.08],[126.49,34.39],[126.18,37.75],[124.71,38.11],[124.26,39.93],[121.05,38.9],[121.64,40.95],[117.53,38.74],[121.1,36.65],[119.15,34.91],[121.91,31.69],[122.09,29.83],[118.66,24.55],[115.89,22.78],[110.79,21.4],[108.05,21.55],[105.66,19.06],[108.88,15.28],[109.2,11.67],[105.16,8.6],[104.33,10.49],[102.58,12.19],[100.1,13.41],[99.15,9.96],[100.46,7.43],[102.14,6.22],[103.38,4.85],[103.52,1.23],[101.39,2.76],[100.09,6.46],[98.5,8.38],[98.55,9.93],[98.77,11.44],[97.16,16.93],[95.37,15.71],[94.19,16.04],[94.33,18.21],[92.37,20.67],[91.42,22.77],[89.03,22.06],[86.98,21.5],[85.06,19.48],[80.33,15.9],[79.86,10.36],[77.54,7.97],[76.59,8.9],[73.53,15.99],[72.63,21.36],[70.47,20.88],[68.18,23.69],[66.37,25.42],[61.5,25.08],[57.4,25.74],[56.49,27.14],[54.72,26.48],[51.52,27.87],[50.11,30.15],[48.57,29.93],[47.98,29.98],[48.42,28.55],[50.15,26.69],[50.81,24.75],[51.39,24.63],[51.58,24.24],[54.01,24.12],[56.07,26.06],[56.26,25.71],[56.4,24.93],[59.81,22.31],[57.79,19.07],[55.27,17.23],[53.11,16.65],[52.17,15.6],[48.68,14],[43.48,12.64],[42.78,16.35],[40.94,19.49],[39.14,21.29],[39.07,22.58],[35.13,28.06],[34.95,29.36],[34.92,29.5],[33.92,27.65],[32.73,28.7],[36.87,22],[37.48,18.61],[38.41,18],[39.27,15.92],[43.08,12.7],[43.14,11.46],[44.12,10.45],[48.95,11.41],[51.11,12.02],[49.45,6.8],[46.56,2.86],[43.14,0.29],[41.59,-1.68],[39.2,-4.68]],[[48.88,38.32],[52.26,36.7],[53.92,37.2],[52.5,41.78],[50.31,44.61],[53.04,45.26],[53.04,46.85],[49.1,46.4],[46.68,44.61],[48.58,41.81],[49.62,40.57],[48.88,38.32]],[[-140.99,69.71],[-136.5,68.9],[-128.14,70.48],[-125.75,69.48],[-122.68,69.86],[-113.9,68.4],[-113.5,67.69],[-106.15,68.8],[-104.34,68.02],[-98.44,67.78],[-98.56,68.4],[-94.69,68.06],[-94.23,69.07],[-96.47,70.09],[-95.21,71.92],[-92.88,71.32],[-89.21,69.26],[-87.35,67.2],[-85.52,69.88],[-81.28,69.16],[-81.39,67.11],[-85.77,66.56],[-87.32,64.77],[-89.91,64.03],[-94.24,60.9],[-94.69,58.95],[-93.21,58.78],[-92.3,57.09],[-89.04,56.85],[-85.01,55.3],[-82.27,55.15],[-81.4,52.16],[-79.91,51.21],[-78.6,52.56],[-79.83,54.67],[-76.54,56.53],[-78.52,58.81],[-77.34,59.85],[-78.11,62.32],[-73.84,62.44],[-71.37,61.14],[-69.59,61.06],[-69.29,58.96],[-67.65,58.21],[-64.58,60.34],[-61.4,56.97],[-61.8,56.34],[-57.33,54.63],[-55.68,52.15],[-60.03,50.24],[-66.4,50.23],[-71.11,46.82],[-66.55,49.13],[-64.47,46.24],[-59.8,45.92],[-65.36,43.55],[-67.14,45.14],[-70.81,42.86],[-69.96,41.64],[-72.88,41.22],[-75.72,37.94],[-75.73,35.55],[-78.55,33.86],[-81.49,30.73],[-80.06,26.88],[-81.17,25.2],[-83.71,29.94],[-86.4,30.4],[-89.59,30.16],[-89.41,29.16],[-91.63,29.68],[-94.69,29.48],[-97.37,27.38],[-97.14,25.87],[-97.87,22.44],[-95.9,18.83],[-94.43,18.14],[-90.77,19.28],[-90.28,21],[-87.05,21.54],[-88.3,18.5],[-88.93,15.89],[-88.22,15.73],[-84.37,15.83],[-83.15,15],[-83.66,10.94],[-82.55,9.57],[-81.44,8.79],[-79.57,9.61],[-77.35,8.67],[-75.48,10.62],[-71.75,12.44],[-71.33,11.78],[-71.4,10.97],[-68.88,11.44],[-68.19,10.56],[-61.88,10.72],[-62.39,9.95],[-59.76,8.37],[-57.15,5.97],[-53.96,5.76],[-51.66,4.16],[-49.95,1.05],[-50.39,-0.08],[-48.62,-0.23],[-43.42,-2.38],[-39.98,-2.87],[-37.22,-4.82],[-35.24,-5.46],[-35.13,-9],[-38.95,-13.79],[-39.76,-19.6],[-41.99,-22.97],[-46.47,-24.09],[-48.49,-25.88],[-48.89,-28.67],[-53.37,-33.77],[-54.93,-34.95],[-58.43,-33.91],[-56.79,-36.9],[-59.23,-38.72],[-62.34,-38.83],[-62.15,-40.68],[-65.12,-41.06],[-63.46,-42.56],[-65.18,-43.49],[-65.57,-45.04],[-67.58,-46.3],[-65.64,-47.24],[-69.14,-50.73],[-68.57,-52.3],[-70.84,-52.9],[-71.01,-53.83],[-74.95,-52.26],[-75.61,-48.67],[-74.13,-46.94],[-75.65,-46.65],[-74.35,-44.1],[-73.24,-44.45],[-72.72,-42.38],[-74.33,-43.23],[-73.17,-37.12],[-71.44,-32.42],[-71.49,-28.86],[-70.9,-27.64],[-70.09,-21.39],[-70.37,-18.35],[-76.01,-14.65],[-79.76,-7.19],[-81.25,-6.14],[-80.3,-3.4],[-80.97,-2.25],[-80.09,0.77],[-78.86,1.38],[-77.13,3.85],[-77.88,7.22],[-79.12,9],[-80.01,7.55],[-82.96,8.22],[-85.8,10.14],[-85.71,11.09],[-87.32,12.98],[-87.79,13.38],[-90.1,13.74],[-92.23,14.54],[-94.69,16.2],[-96.56,15.65],[-103.5,18.29],[-105.73,20.43],[-106.03,22.77],[-109.29,26.44],[-112.23,28.96],[-113.15,31.17],[-114.78,31.8],[-114.67,30.16],[-111.62,26.66],[-109.41,23.36],[-112.18,24.74],[-112.3,26.01],[-114.46,27.14],[-114.16,28.57],[-115.52,29.56],[-117.13,32.53],[-118.52,34.03],[-120.37,34.45],[-123.73,38.95],[-124.53,42.77],[-123.9,45.52],[-124.57,48.38],[-122.34,47.36],[-122.84,49],[-127.44,50.83],[-130.54,54.8],[-134.08,58.12],[-136.63,58.21],[-139.87,59.54],[-143.96,60],[-147.11,60.89],[-148.02,59.98],[-151.72,59.16],[-151.41,60.73],[-154.02,59.35],[-153.29,58.86],[-158.43,55.99],[-164.94,54.57],[-160.56,56.01],[-157.72,57.57],[-157.04,58.92],[-159.06,58.42],[-163.82,59.8],[-166.12,61.5],[-164.56,63.15],[-160.77,63.77],[-160.78,64.79],[-164.96,64.45],[-168.11,65.67],[-164.47,66.58],[-161.68,66.12],[-165.39,68.04],[-161.91,70.33],[-156.58,71.36],[-152.27,70.6],[-140.99,69.71]],[[-88.15,74.39],[-92.42,74.84],[-93.89,76.32],[-96.75,77.16],[-91.6,76.78],[-89.19,75.61],[-81.13,75.71],[-79.83,74.92],[-81.95,74.44],[-88.15,74.39]],[[-55.6,51.32],[-56.8,49.81],[-53.48,49.25],[-52.65,47.54],[-59.27,47.6],[-57.36,50.72],[-55.6,51.32]],[[-83.88,65.11],[-80.1,63.73],[-83.11,64.1],[-85.52,63.05],[-85.88,65.74],[-83.88,65.11]],[[-78.77,72.35],[-77.82,72.75],[-68.79,70.52],[-66.97,69.19],[-68.81,68.72],[-61.85,66.86],[-63.92,65],[-66.72,66.39],[-68.14,65.69],[-65.32,64.38],[-65.01,62.67],[-68.78,63.75],[-66.17,61.93],[-68.88,62.33],[-74.82,64.39],[-77.71,64.23],[-77.9,65.31],[-73.96,65.46],[-72.65,67.28],[-73.31,68.07],[-76.87,68.89],[-78.96,70.17],[-81.31,69.74],[-88.68,70.41],[-90.2,72.24],[-88.41,73.54],[-82.32,73.75],[-78.77,72.35]],[[-94.5,74.13],[-90.51,73.86],[-94.27,72.02],[-96.03,72.94],[-94.5,74.13]],[[-122.86,76.12],[-119.11,77.51],[-116.2,77.65],[-116.34,76.88],[-119.9,76.05],[-122.86,76.12]],[[-105.49,79.3],[-100.82,78.8],[-99.67,77.91],[-102.95,78.34],[-105.49,79.3]],[[-123.51,48.51],[-125.65,48.83],[-128.36,50.77],[-125.75,50.29],[-123.51,48.51]],[[-121.54,74.45],[-117.56,74.19],[-115.51,73.47],[-119.22,72.52],[-120.46,71.38],[-123.09,70.9],[-125.93,71.87],[-123.94,73.68],[-124.92,74.29],[-121.54,74.45]],[[-107.82,75.85],[-106.31,75],[-112.22,74.42],[-111.79,75.16],[-117.71,75.22],[-115.4,76.48],[-109.07,75.47],[-107.82,75.85]],[[-106.52,73.08],[-104.46,70.99],[-100.98,70.03],[-102.43,68.75],[-105.96,69.18],[-113.31,68.54],[-117.34,69.96],[-112.42,70.37],[-117.91,70.54],[-116.11,71.31],[-119.4,71.56],[-117.87,72.71],[-115.19,73.31],[-114.67,72.65],[-109.92,72.96],[-108.19,71.65],[-108.4,73.09],[-106.52,73.08]],[[-100.44,72.71],[-100.36,73.84],[-97.38,73.76],[-96.54,72.56],[-98.36,71.27],[-102.5,72.51],[-100.44,72.71]],[[-98.5,76.72],[-98.16,75],[-100.88,75.06],[-102.57,76.34],[-98.5,76.72]],[[-96.01,80.6],[-92.41,81.26],[-87.81,80.32],[-85.82,79.34],[-89.03,78.29],[-92.88,78.34],[-96.01,80.6]],[[-91.59,81.9],[-85.5,82.65],[-72.83,83.23],[-65.83,83.03],[-61.89,82.36],[-71.18,79.8],[-76.91,79.32],[-75.39,78.53],[-80.56,76.18],[-89.49,76.47],[-87.96,78.37],[-85.1,79.35],[-91.59,81.9]],[[-96.26,69.49],[-96.27,68.76],[-99.8,69.4],[-98.22,70.14],[-96.26,69.49]],[[141,-2.6],[144.58,-3.86],[148.73,-9.11],[150.8,-10.29],[147.91,-10.13],[144.74,-7.63],[142.63,-9.33],[141.03,-9.12],[140.14,-8.3],[137.61,-8.41],[138.67,-7.32],[137.93,-5.39],[133.66,-3.54],[130.52,-0.94],[133.98,-0.78],[134.42,-2.77],[138.33,-1.7],[141,-2.6]],[[115.45,5.45],[116.73,6.92],[119.18,5.41],[117.88,4.14],[117.31,3.24],[119,0.9],[117.81,0.78],[116.56,-1.49],[116.15,-4.01],[113.26,-3.12],[110.22,-2.93],[109.09,-0.46],[109.66,2.01],[111.17,1.85],[114.21,4.53],[115.45,5.45]],[[122.93,0.88],[124.44,0.43],[120.18,0.24],[123.16,-5.34],[122.24,-5.28],[120.3,-2.93],[120.43,-5.53],[119.37,-5.38],[118.77,-2.8],[120.03,0.57],[122.93,0.88]],[[108.49,-6.42],[112.61,-6.95],[115.71,-8.37],[114.57,-8.75],[108.28,-7.77],[105.36,-6.85],[106.05,-5.9],[108.49,-6.42]],[[104.37,-1.08],[106.11,-3.06],[105.82,-5.85],[102.58,-4.22],[98.6,1.82],[95.38,4.97],[97.48,5.25],[100.64,2.1],[101.66,2.08],[104.37,-1.08]],[[-68.63,-52.64],[-67.75,-53.85],[-65.05,-54.7],[-66.96,-54.9],[-68.15,-55.61],[-71.01,-55.05],[-74.66,-52.84],[-71.11,-54.07],[-68.63,-52.64]],[[-71.71,18.04],[-73.19,19.92],[-71.71,19.71],[-68.32,18.61],[-71.71,18.04]],[[93.78,81.03],[95.94,81.25],[100.19,79.78],[97.76,78.76],[93.31,79.43],[91.18,80.34],[93.78,81.03]],[[138.83,76.14],[145.09,75.56],[144.3,74.82],[138.96,74.61],[136.98,75.26],[138.83,76.14]],[[53.51,73.75],[55.63,75.08],[61.17,76.25],[68.16,76.94],[68.18,76.23],[61.58,75.26],[58.48,74.31],[55.42,72.37],[57.53,70.72],[53.68,70.76],[51.6,71.47],[53.51,73.75]],[[142.92,53.7],[144.65,48.98],[143.18,49.31],[142.56,47.86],[143.54,46.84],[142.09,45.97],[142.18,50.95],[141.68,53.3],[142.92,53.7]],[[-180,71.52],[-180,70.83],[178.9,70.78],[178.73,71.1],[-180,71.52]],[[15.14,79.67],[16.99,80.05],[21.54,78.96],[19.03,78.56],[17.12,76.81],[11.22,78.87],[10.45,79.65],[15.14,79.67]],[[27.41,80.06],[25.93,79.52],[20.08,79.57],[17.37,80.32],[22.92,80.66],[27.41,80.06]],[[-46.76,82.63],[-43.41,83.23],[-35.09,83.65],[-27.1,83.52],[-20.85,82.73],[-22.69,82.34],[-31.9,82.2],[-24.85,81.79],[-23.17,81.15],[-15.77,81.91],[-12.21,81.29],[-17.73,80.13],[-19.7,78.75],[-18.47,76.98],[-21.68,76.63],[-19.83,76.1],[-19.37,74.3],[-24.28,72.6],[-21.75,70.66],[-23.54,70.47],[-25.54,71.43],[-26.36,70.23],[-22.35,70.13],[-27.75,68.47],[-31.78,68.12],[-34.2,66.68],[-39.81,65.46],[-41.19,63.48],[-42.82,62.68],[-43.38,60.1],[-48.26,60.86],[-51.63,63.63],[-53.97,67.19],[-51.48,68.73],[-50.87,69.93],[-53.46,69.28],[-54.36,70.82],[-51.39,70.57],[-55.83,71.66],[-54.72,72.59],[-58.59,75.52],[-61.27,76.1],[-68.5,76.06],[-71.4,77.01],[-66.76,77.38],[-71.04,77.64],[-73.16,78.43],[-65.71,79.4],[-68.02,80.12],[-62.24,81.32],[-62.65,81.77],[-57.21,82.19],[-53.04,81.89],[-50.39,82.44],[-44.52,81.66],[-46.76,82.63]],[[-82.27,23.19],[-78.35,22.51],[-74.18,20.28],[-77.76,19.86],[-78.72,21.6],[-82.78,22.69],[-82.27,23.19]],[[49.54,-12.47],[50.48,-15.23],[47.1,-24.94],[44.04,-24.99],[43.25,-22.06],[44.38,-20.07],[44.45,-16.22],[46.31,-15.78],[49.54,-12.47]],[[-6.2,53.87],[-6.79,52.26],[-9.98,51.82],[-9.69,53.88],[-7.57,55.13],[-6.2,53.87]],[[176.89,-40.07],[176.01,-41.29],[173.82,-39.51],[174.32,-36.53],[172.63,-34.53],[174.33,-35.27],[175.34,-37.21],[178.52,-37.7],[176.89,-40.07]],[[169.67,-43.56],[172.8,-40.49],[174.25,-41.77],[169.33,-46.64],[166.68,-46.22],[167.05,-45.11],[169.67,-43.56]],[[147.69,-40.81],[147.91,-43.21],[146.05,-43.55],[144.74,-40.7],[147.69,-40.81]],[[126.15,-32.22],[123.66,-33.89],[119.89,-33.98],[118.03,-35.06],[115.03,-34.2],[115.8,-32.21],[114.17,-28.12],[113.39,-24.38],[114.15,-21.76],[120.86,-19.68],[123.01,-16.41],[127.07,-13.82],[128.36,-14.87],[130.62,-12.54],[132.58,-12.11],[132.36,-11.13],[136.95,-12.35],[135.43,-14.72],[139.26,-17.37],[140.87,-17.37],[141.7,-15.04],[141.69,-12.41],[142.52,-10.67],[143.92,-14.55],[145.37,-14.99],[146.39,-18.96],[148.85,-20.39],[149.68,-22.34],[152.86,-25.27],[153.57,-28.11],[152.89,-31.64],[151.71,-33.04],[150,-37.43],[146.32,-39.04],[140.64,-38.02],[139.58,-36.14],[136.83,-35.26],[137.81,-32.9],[135.99,-34.89],[134.27,-32.62],[131.33,-31.5],[126.15,-32.22]],[[81.79,7.52],[80.35,5.97],[79.7,8.2],[80.15,9.82],[81.79,7.52]],[[-3.09,53.4],[-5.59,55.31],[-6.15,56.78],[-5.01,58.63],[-3,58.63],[-4.07,57.55],[-1.96,57.68],[-2.09,55.91],[0.47,52.93],[1.68,52.74],[0.55,50.77],[-5.78,50.16],[-4.31,51.21],[-4.58,53.5],[-3.09,53.4]],[[-14.51,66.46],[-13.61,65.13],[-18.66,63.5],[-22.76,63.96],[-21.78,64.4],[-24.33,65.61],[-22.13,66.41],[-20.58,65.73],[-14.51,66.46]],[[126.38,8.41],[125.4,5.58],[123.61,7.83],[122.31,8.04],[126.22,9.29],[126.38,8.41]],[[122.34,18.22],[121.73,14.33],[120.07,14.97],[120.71,18.51],[122.34,18.22]],[[141.88,39.18],[140.77,35.84],[135.79,33.46],[135.08,34.6],[130.99,33.89],[132,33.15],[131.33,31.45],[129.41,33.3],[132.62,35.43],[135.68,35.53],[139.43,38.22],[140.31,41.2],[141.37,41.38],[141.88,39.18]],[[144.61,43.96],[145.54,43.26],[143.18,41.99],[141.61,42.68],[141.97,45.55],[144.61,43.96]],[[-48.66,-78.05],[-43.92,-78.48],[-43.33,-80.03],[-50.48,-81.03],[-53.99,-80.22],[-50.99,-79.61],[-48.66,-78.05]],[[-66.29,-80.26],[-61.88,-80.39],[-60.61,-79.63],[-60.16,-81],[-64.49,-80.92],[-66.29,-80.26]],[[-73.91,-71.27],[-72.07,-71.19],[-71.74,-69.51],[-70.25,-68.88],[-68.45,-70.96],[-68.78,-72.17],[-74.19,-72.37],[-73.91,-71.27]],[[-163.71,-78.6],[-161.24,-78.38],[-159.21,-79.5],[-161.13,-79.63],[-163.71,-78.6]],[[-180,-84.71],[-179.06,-84.14],[-174.38,-84.53],[-169.95,-83.88],[-167.02,-84.57],[-158.07,-85.37],[-155.19,-85.1],[-148.53,-85.61],[-143.11,-85.04],[-142.89,-84.57],[-150.06,-84.3],[-153.59,-83.69],[-152.86,-82.04],[-156.84,-81.1],[-150.65,-81.34],[-147.22,-80.67],[-146.77,-79.93],[-149.53,-79.36],[-155.33,-79.06],[-158.05,-78.03],[-156.97,-77.3],[-151.33,-77.4],[-146.11,-76.48],[-146.2,-75.38],[-144.32,-75.54],[-135.22,-74.3],[-119.7,-74.48],[-113.94,-73.72],[-107.56,-75.18],[-100.64,-75.3],[-103.68,-72.62],[-100.31,-72.75],[-96.34,-73.62],[-88.42,-73.01],[-81.47,-73.85],[-80.3,-73.13],[-76.22,-73.97],[-68.94,-73.01],[-67.37,-72.48],[-68.49,-70.11],[-67.74,-67.33],[-63,-64.64],[-58.6,-63.39],[-59.05,-64.37],[-62.51,-65.09],[-62.12,-66.19],[-65.51,-67.58],[-61.51,-71.09],[-60.69,-73.17],[-61.96,-74.44],[-70.6,-76.64],[-77.24,-76.71],[-74.28,-77.56],[-74.77,-78.22],[-77.92,-78.38],[-78.03,-79.18],[-75.36,-80.26],[-59.69,-82.38],[-58.22,-83.22],[-49.76,-81.73],[-42.81,-82.08],[-38.24,-81.34],[-28.55,-80.34],[-29.68,-79.26],[-35.64,-79.46],[-35.78,-78.34],[-28.88,-76.67],[-22.46,-76.11],[-15.7,-74.5],[-16.46,-73.87],[-10.29,-71.26],[-7.42,-71.7],[-6.87,-70.93],[-0.23,-71.64],[9.52,-70.01],[10.82,-70.83],[13.42,-69.97],[19.26,-69.89],[22.57,-70.7],[29.15,-70.21],[32.75,-69.38],[33.87,-68.5],[38.65,-69.78],[40.02,-69.11],[50.76,-66.88],[52.61,-66.05],[56.36,-65.98],[58.74,-67.29],[62.39,-68.01],[64.05,-67.41],[68.89,-67.93],[69.55,-69.68],[67.95,-71.85],[71.02,-72.09],[73.86,-69.88],[77.64,-69.46],[79.11,-68.33],[82.78,-67.21],[86.75,-67.15],[87.99,-66.21],[90.63,-67.23],[99.72,-67.25],[102.83,-65.56],[106.18,-66.94],[110.23,-66.7],[113.6,-65.88],[115.6,-66.7],[120.87,-67.19],[122.32,-66.56],[128.8,-66.76],[134.76,-66.21],[135.07,-65.31],[137.46,-66.96],[145.49,-66.91],[146.65,-67.89],[152.5,-68.87],[154.28,-68.56],[162.69,-70.74],[168.43,-70.97],[171.21,-71.7],[169.29,-73.66],[166.09,-74.38],[164.24,-75.46],[163.49,-77.07],[167,-78.75],[161.77,-79.16],[159.79,-80.95],[163.71,-82.39],[173.22,-84.41],[175.99,-84.16],[180,-84.71],[-180,-84.71]]];
+  const NODES = [{"label":"Zug, CH","kind":"foundation","lat":47.17,"lng":8.52},{"label":"Abu Dhabi, UAE","kind":"hal8","lat":24.47,"lng":54.37},{"label":"Wilmington, DE","kind":"dfm23","lat":39.74,"lng":-75.55},{"label":"Ashburn, VA","kind":"prime","lat":39.04,"lng":-77.49},{"label":"Dallas, TX","kind":"prime","lat":32.78,"lng":-96.8},{"label":"Portland, OR","kind":"prime","lat":45.52,"lng":-122.68},{"label":"Toronto, CA","kind":"prime","lat":43.65,"lng":-79.38},{"label":"London, UK","kind":"prime","lat":51.51,"lng":-0.13},{"label":"Frankfurt, DE","kind":"prime","lat":50.11,"lng":8.68},{"label":"Amsterdam, NL","kind":"prime","lat":52.37,"lng":4.9},{"label":"Stockholm, SE","kind":"prime","lat":59.33,"lng":18.07},{"label":"Warsaw, PL","kind":"prime","lat":52.23,"lng":21.01},{"label":"Dublin, IE","kind":"prime","lat":53.35,"lng":-6.26},{"label":"Cape Town, ZA","kind":"prime","lat":-33.92,"lng":18.42},{"label":"São Paulo, BR","kind":"prime","lat":-23.55,"lng":-46.63},{"label":"Singapore","kind":"prime","lat":1.35,"lng":103.82},{"label":"Tokyo, JP","kind":"prime","lat":35.68,"lng":139.65},{"label":"Seoul, KR","kind":"prime","lat":37.57,"lng":126.98},{"label":"Hong Kong","kind":"prime","lat":22.3,"lng":114.17},{"label":"Sydney, AU","kind":"prime","lat":-33.87,"lng":151.21},{"label":"Auckland, NZ","kind":"prime","lat":-36.85,"lng":174.76},{"label":"Mumbai, IN","kind":"prime","lat":19.08,"lng":72.88},{"label":"Ashburn, VA","kind":"vector","lat":39.04,"lng":-77.49},{"label":"Frankfurt, DE","kind":"vector","lat":50.11,"lng":8.68},{"label":"London, UK","kind":"vector","lat":51.51,"lng":-0.13},{"label":"Singapore","kind":"vector","lat":1.35,"lng":103.82},{"label":"Tokyo, JP","kind":"vector","lat":35.68,"lng":139.65},{"label":"Sydney, AU","kind":"vector","lat":-33.87,"lng":151.21},{"label":"Dallas, TX","kind":"nexus","lat":32.78,"lng":-96.8},{"label":"Amsterdam, NL","kind":"nexus","lat":52.37,"lng":4.9},{"label":"Frankfurt, DE","kind":"nexus","lat":50.11,"lng":8.68},{"label":"Seoul, KR","kind":"nexus","lat":37.57,"lng":126.98},{"label":"Singapore","kind":"nexus","lat":1.35,"lng":103.82}];
+
+  // Globe viewBox is 500x500; globe radius R, center (cx, cy)
+  const R = 220;
+  const CX = 250;
+  const CY = 250;
+
+  // Kind styling (same palette as before)
+  const kindMeta = {
+    foundation: { color: "var(--accent-2)", label: "Foundation",      tag: "VERIFIED" },
+    hal8:       { color: "var(--accent)",   label: "HAL8 (ADGM)",     tag: "VERIFIED" },
+    dfm23:      { color: "var(--ignition)", label: "DFM 23 (DE)",     tag: "VERIFIED" },
+    prime:      { color: "var(--prime)",    label: "Prime SPO",       tag: "REPRESENTATIVE" },
+    vector:     { color: "var(--vector)",   label: "Vector validator", tag: "REPRESENTATIVE" },
+    nexus:      { color: "var(--nexus)",    label: "Nexus validator",  tag: "REPRESENTATIVE" }
+  };
+  const counts = NODES.reduce((acc, n) => { acc[n.kind] = (acc[n.kind] || 0) + 1; return acc; }, {});
+  const entityHubs = NODES.filter(n => ["foundation","hal8","dfm23"].indexOf(n.kind) >= 0);
+  const primeClusters = NODES.filter(n => n.kind === "prime");
+  const l2Validators = NODES.filter(n => n.kind === "vector" || n.kind === "nexus");
+
+  // Orthographic projection with rotation (lambda, phi)
+  // Returns { x, y, z }; z > 0 means point is on near hemisphere
+  function project(lng, lat, lambda, phi) {
+    var cosPhi = Math.cos(phi), sinPhi = Math.sin(phi);
+    var lng2 = (lng * Math.PI / 180) + lambda;
+    var lat2 = lat * Math.PI / 180;
+    var cosLat = Math.cos(lat2), sinLat = Math.sin(lat2);
+    var cosLng = Math.cos(lng2), sinLng = Math.sin(lng2);
+    // 3D unit sphere point (before tilt)
+    var x0 = cosLat * sinLng;
+    var y0 = sinLat;
+    var z0 = cosLat * cosLng;
+    // Apply phi tilt around X axis
+    var y = y0 * cosPhi - z0 * sinPhi;
+    var z = y0 * sinPhi + z0 * cosPhi;
+    var x = x0;
+    return { x: CX + x * R, y: CY - y * R, z: z };
+  }
+
+  // Clip an edge at the horizon (z=0). Given a front point A and a back point B,
+  // returns the interpolated point on the edge where z crosses 0, projected onto
+  // the circle of the globe (so it sits exactly on the horizon).
+  function horizonClip(A, B) {
+    var t = A.z / (A.z - B.z);
+    var x = A.x + t * (B.x - A.x);
+    var y = A.y + t * (B.y - A.y);
+    // Re-project onto exact circle (visual cleanliness)
+    var dx = x - CX, dy = y - CY;
+    var len = Math.sqrt(dx*dx + dy*dy) || 1;
+    var k = R / len;
+    return { x: CX + dx * k, y: CY + dy * k, z: 0 };
+  }
+
+  // Build SVG path string for a single ring (polygon) using orthographic clipping
+  function buildRingPath(ring, lambda, phi) {
+    var projected = new Array(ring.length);
+    for (var i = 0; i < ring.length; i++) {
+      var c = ring[i];
+      projected[i] = project(c[0], c[1], lambda, phi);
+    }
+    var d = "";
+    var penDown = false;
+    for (var i = 0; i < projected.length; i++) {
+      var a = projected[i];
+      var b = projected[(i + 1) % projected.length];
+      var aFront = a.z >= 0;
+      var bFront = b.z >= 0;
+      if (aFront && bFront) {
+        if (!penDown) { d += "M" + a.x.toFixed(1) + "," + a.y.toFixed(1); penDown = true; }
+        d += "L" + b.x.toFixed(1) + "," + b.y.toFixed(1);
+      } else if (aFront && !bFront) {
+        if (!penDown) { d += "M" + a.x.toFixed(1) + "," + a.y.toFixed(1); penDown = true; }
+        var clip = horizonClip(a, b);
+        d += "L" + clip.x.toFixed(1) + "," + clip.y.toFixed(1);
+        penDown = false;
+      } else if (!aFront && bFront) {
+        var clip = horizonClip(b, a);
+        d += "M" + clip.x.toFixed(1) + "," + clip.y.toFixed(1) + "L" + b.x.toFixed(1) + "," + b.y.toFixed(1);
+        penDown = true;
+      }
+    }
+    return d;
+  }
+
+  function buildLandPath(lambda, phi) {
+    var parts = new Array(LAND.length);
+    for (var i = 0; i < LAND.length; i++) {
+      parts[i] = buildRingPath(LAND[i], lambda, phi);
+    }
+    return parts.join("");
+  }
+
+  // Graticule: 30° meridian/parallel lines
+  function buildGraticule(lambda, phi) {
+    var d = "";
+    // Meridians
+    for (var mLng = -180; mLng < 180; mLng += 30) {
+      var pts = [];
+      for (var lat = -80; lat <= 80; lat += 5) {
+        pts.push(project(mLng, lat, lambda, phi));
+      }
+      var pen = false;
+      for (var i = 0; i < pts.length - 1; i++) {
+        var a = pts[i], b = pts[i + 1];
+        if (a.z >= 0 && b.z >= 0) {
+          if (!pen) { d += "M" + a.x.toFixed(1) + "," + a.y.toFixed(1); pen = true; }
+          d += "L" + b.x.toFixed(1) + "," + b.y.toFixed(1);
+        } else {
+          pen = false;
+        }
+      }
+    }
+    // Parallels
+    for (var par = -60; par <= 60; par += 30) {
+      var pts2 = [];
+      for (var lng = -180; lng <= 180; lng += 5) {
+        pts2.push(project(lng, par, lambda, phi));
+      }
+      var pen2 = false;
+      for (var i = 0; i < pts2.length - 1; i++) {
+        var a = pts2[i], b = pts2[i + 1];
+        if (a.z >= 0 && b.z >= 0) {
+          if (!pen2) { d += "M" + a.x.toFixed(1) + "," + a.y.toFixed(1); pen2 = true; }
+          d += "L" + b.x.toFixed(1) + "," + b.y.toFixed(1);
+        } else {
+          pen2 = false;
+        }
+      }
+    }
+    return d;
+  }
+
+  // Animation loop
+  useEffect(function() {
+    var raf;
+    var last = performance.now();
+    function tick(now) {
+      var dt = Math.min(now - last, 100);
+      last = now;
+      if (!pausedRef.current) {
+        lambdaRef.current += (dt / 1000) * 0.12; // ~6.9°/s, one revolution in ~52s
+      }
+      var lam = lambdaRef.current;
+      var phi = phiRef.current;
+      if (landRef.current) {
+        landRef.current.setAttribute("d", buildLandPath(lam, phi));
+      }
+      if (graticuleRef.current) {
+        graticuleRef.current.setAttribute("d", buildGraticule(lam, phi));
+      }
+      // Update each node marker
+      for (var i = 0; i < NODES.length; i++) {
+        var n = NODES[i];
+        var g = nodeRefs.current[i];
+        if (!g) continue;
+        var p = project(n.lng, n.lat, lam, phi);
+        if (p.z < -0.05) {
+          g.setAttribute("opacity", "0");
+          g.setAttribute("pointer-events", "none");
+        } else {
+          // Fade near the horizon
+          var visFade = Math.min(1, Math.max(0, (p.z + 0.05) * 6));
+          g.setAttribute("opacity", String(visFade.toFixed(2)));
+          g.setAttribute("pointer-events", "auto");
+          g.setAttribute("transform", "translate(" + p.x.toFixed(1) + "," + p.y.toFixed(1) + ")");
+        }
+      }
+      raf = requestAnimationFrame(tick);
+    }
+    raf = requestAnimationFrame(tick);
+    return function() { cancelAnimationFrame(raf); };
+  }, []);
+
+  // Sync pausedRef to state
+  useEffect(function() { pausedRef.current = paused; }, [paused]);
+
+  // Manual rotation via pointer drag
+  useEffect(function() {
+    var svg = svgRef.current;
+    if (!svg) return;
+    var dragging = false;
+    var lastX = 0, lastY = 0;
+    function down(ev) {
+      dragging = true;
+      pausedRef.current = true;
+      setPaused(true);
+      lastX = ev.clientX; lastY = ev.clientY;
+      svg.setPointerCapture && svg.setPointerCapture(ev.pointerId);
+    }
+    function move(ev) {
+      if (!dragging) return;
+      var dx = ev.clientX - lastX;
+      var dy = ev.clientY - lastY;
+      lastX = ev.clientX; lastY = ev.clientY;
+      lambdaRef.current += dx * 0.008;
+      phiRef.current = Math.max(-Math.PI/2 + 0.1, Math.min(Math.PI/2 - 0.1, phiRef.current + dy * 0.008));
+    }
+    function up(ev) {
+      dragging = false;
+      svg.releasePointerCapture && svg.releasePointerCapture(ev.pointerId);
+    }
+    svg.addEventListener("pointerdown", down);
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+    return function() {
+      svg.removeEventListener("pointerdown", down);
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+    };
+  }, []);
+
+  return e("div", { className: "section-wrap" },
+
+    // HERO
+    e("div", { style: { paddingTop: 24, marginBottom: 40 } },
+      e("div", { className: "eyebrow", style: { marginBottom: 16, color: "var(--accent)" } }, "\u00A7 11 \u2014 Decentralized Network"),
+      e("h1", { className: "serif", style: { fontSize: "clamp(48px, 7vw, 104px)", lineHeight: 0.92, letterSpacing: "-0.03em", margin: 0, fontWeight: 400, textTransform: "uppercase" } },
+        "Decentralized. ", e("span", { className: "serif-i", style: { color: "var(--accent-2)" } }, "Global"), ". Live."
+      ),
+      e("p", { className: "lead", style: { marginTop: 24, maxWidth: "62ch" } },
+        "A live tri\u2011chain network operated by 300+ stake pool operators worldwide. Prime secures the base layer under Ouroboros PoS. Vector and Nexus extend into eUTXO and EVM execution. The Foundation and operating entities are headquartered across three regulatory jurisdictions."
+      )
+    ),
+
+    // GLOBE + STATS — two-column layout on desktop, stacked on mobile
+    e("div", { className: "network-globe-wrap", style: { display: "grid", gridTemplateColumns: "minmax(0, 1.15fr) minmax(280px, 1fr)", gap: 0, border: "1px solid var(--rule)", borderRadius: 3, background: "var(--paper-2)", marginBottom: 32, overflow: "hidden" } },
+
+      // Globe column
+      e("div", { className: "network-globe-col", style: { position: "relative", padding: "20px", borderRight: "1px solid var(--rule-2)", display: "flex", flexDirection: "column" } },
+        e("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, gap: 16, flexWrap: "wrap" } },
+          e("div", { style: { display: "flex", alignItems: "center", gap: 10 } },
+            e("span", { className: "network-globe-pulse" }),
+            e("span", { className: "eyebrow", style: { color: "var(--accent-2)" } }, "// LIVE TOPOLOGY"),
+            e("span", { className: "mono", style: { fontSize: 9.5, color: "var(--ink-3)", letterSpacing: "0.14em" } }, "ORTHOGRAPHIC \u00B7 ROT " + (paused ? "PAUSED" : "6.9\u00B0/s"))
+          ),
+          e("button", {
+            onClick: function() { setPaused(function(p) { return !p; }); },
+            style: { fontFamily: "var(--f-mono)", fontSize: 10, letterSpacing: "0.14em", textTransform: "uppercase", padding: "6px 12px", border: "1px solid var(--rule)", color: "var(--ink-2)", background: "transparent", cursor: "pointer" }
+          }, paused ? "Resume \u25B6" : "Pause \u25FC")
+        ),
+
+        e("div", { style: { position: "relative", flex: 1, display: "flex", alignItems: "center", justifyContent: "center" } },
+          e("svg", {
+            ref: svgRef,
+            viewBox: "0 0 500 500",
+            xmlns: "http://www.w3.org/2000/svg",
+            style: { width: "100%", height: "auto", maxHeight: 520, display: "block", cursor: "grab", touchAction: "none" },
+            "aria-label": "Apex Fusion decentralized network globe"
+          },
+            e("defs", null,
+              e("radialGradient", { id: "globe-ocean", cx: "35%", cy: "35%", r: "65%" },
+                e("stop", { offset: "0%", stopColor: "color-mix(in oklch, var(--accent-2) 18%, var(--paper))" }),
+                e("stop", { offset: "60%", stopColor: "var(--paper)" }),
+                e("stop", { offset: "100%", stopColor: "color-mix(in oklch, var(--paper) 60%, #000)" })
+              ),
+              e("radialGradient", { id: "globe-halo", cx: "50%", cy: "50%", r: "50%" },
+                e("stop", { offset: "75%", stopColor: "var(--accent-2)", stopOpacity: "0" }),
+                e("stop", { offset: "95%", stopColor: "var(--accent-2)", stopOpacity: "0.25" }),
+                e("stop", { offset: "100%", stopColor: "var(--accent-2)", stopOpacity: "0" })
+              ),
+              e("filter", { id: "globe-pulse" },
+                e("feGaussianBlur", { stdDeviation: "1.2" })
+              ),
+              e("clipPath", { id: "globe-clip" },
+                e("circle", { cx: CX, cy: CY, r: R })
+              )
+            ),
+
+            // Outer halo
+            e("circle", { cx: CX, cy: CY, r: R + 18, fill: "url(#globe-halo)" }),
+
+            // Ocean sphere
+            e("circle", { cx: CX, cy: CY, r: R, fill: "url(#globe-ocean)" }),
+
+            // Everything inside this group is clipped to the globe circle
+            e("g", { clipPath: "url(#globe-clip)" },
+              // Graticule
+              e("path", {
+                ref: graticuleRef,
+                d: "",
+                fill: "none",
+                stroke: "color-mix(in oklch, var(--accent-2) 30%, transparent)",
+                strokeWidth: "0.4",
+                opacity: "0.45"
+              }),
+              // Land
+              e("path", {
+                ref: landRef,
+                d: "",
+                fill: "color-mix(in oklch, var(--ink) 8%, transparent)",
+                stroke: "color-mix(in oklch, var(--accent-2) 70%, transparent)",
+                strokeWidth: "0.7",
+                strokeLinejoin: "round",
+                strokeLinecap: "round"
+              })
+            ),
+
+            // Globe outline (on top of everything)
+            e("circle", { cx: CX, cy: CY, r: R, fill: "none", stroke: "var(--accent-2)", strokeWidth: "0.8", opacity: "0.55" }),
+
+            // Nodes — one <g> per node, positioned via transform at runtime
+            NODES.map(function(n, i) {
+              var meta = kindMeta[n.kind];
+              var isEntity = ["foundation","hal8","dfm23"].indexOf(n.kind) >= 0;
+              var radius = isEntity ? 5 : 3;
+              return e("g", {
+                key: n.kind + "-" + i,
+                ref: function(el) { nodeRefs.current[i] = el; },
+                style: { cursor: "pointer" },
+                onMouseEnter: function() { setActive(n); },
+                onMouseLeave: function() { setActive(null); }
+              },
+                e("circle", { r: radius * 2.8, fill: meta.color, opacity: "0.18", filter: "url(#globe-pulse)" }),
+                e("circle", { r: radius, fill: "none", stroke: meta.color, strokeWidth: isEntity ? "1.3" : "0.9" }),
+                e("circle", { r: isEntity ? 2 : 1.3, fill: meta.color })
+              );
+            })
+          ),
+
+          // Tooltip overlay — positioned as HTML above the globe, via plain DOM (more flexible than SVG text)
+          active && e("div", {
+            className: "globe-tooltip",
+            style: {
+              position: "absolute",
+              bottom: 16,
+              left: 16,
+              padding: "10px 14px",
+              background: "color-mix(in oklch, var(--paper) 92%, transparent)",
+              border: "1px solid " + kindMeta[active.kind].color,
+              borderRadius: 2,
+              pointerEvents: "none",
+              backdropFilter: "blur(6px)",
+              maxWidth: 220
+            }
+          },
+            e("div", { className: "mono", style: { fontSize: 9.5, letterSpacing: "0.14em", color: kindMeta[active.kind].color, marginBottom: 4 } },
+              kindMeta[active.kind].label.toUpperCase() + " \u00B7 " + kindMeta[active.kind].tag
+            ),
+            e("div", { className: "serif", style: { fontSize: 16, letterSpacing: "-0.005em", color: "var(--ink)", fontWeight: 500, marginBottom: 2 } }, active.label),
+            e("div", { className: "mono", style: { fontSize: 10, color: "var(--ink-3)", letterSpacing: "0.04em" } },
+              active.lat.toFixed(2) + "\u00B0, " + active.lng.toFixed(2) + "\u00B0"
+            )
+          )
+        ),
+
+        // Hint strip
+        e("div", { style: { marginTop: 10, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" } },
+          e("span", { className: "mono", style: { fontSize: 9.5, color: "var(--ink-4)", letterSpacing: "0.14em" } }, "DRAG TO ROTATE \u00B7 HOVER FOR DETAIL"),
+          e("span", { className: "mono", style: { fontSize: 9.5, color: "var(--ink-4)", letterSpacing: "0.14em" } }, NODES.length + " markers \u00B7 6 kinds")
+        )
+      ),
+
+      // Stats column
+      e("div", { className: "network-stats-col", style: { padding: "28px 24px", display: "flex", flexDirection: "column", gap: 20 } },
+        // Headline stat — SPO count with dual-source disclosure
+        e("div", { style: { paddingBottom: 20, borderBottom: "1px solid var(--rule-2)" } },
+          e("div", { className: "eyebrow", style: { marginBottom: 10, color: "var(--prime)" } }, "// PRIME STAKE POOL OPERATORS"),
+          e("div", { style: { display: "flex", alignItems: "baseline", gap: 14, marginBottom: 14 } },
+            e("span", { className: "serif", style: { fontSize: 76, lineHeight: 0.9, letterSpacing: "-0.04em", color: "var(--ink)", fontWeight: 500 } }, "333"),
+            e("span", { className: "serif-i", style: { fontSize: 24, color: "var(--ink-3)", letterSpacing: "-0.02em" } }, "registered")
+          ),
+          e("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 } },
+            e("div", null,
+              e("div", { className: "eyebrow", style: { marginBottom: 4 } }, "Apex Scan"),
+              e("div", { className: "serif", style: { fontSize: 22, color: "var(--ink)", letterSpacing: "-0.02em" } }, "333"),
+              e("div", { className: "mono", style: { fontSize: 9.5, color: "var(--ink-4)", letterSpacing: "0.1em" } }, "REGISTERED POOLS")
+            ),
+            e("div", null,
+              e("div", { className: "eyebrow", style: { marginBottom: 4 } }, "Master Dashboard"),
+              e("div", { className: "serif", style: { fontSize: 22, color: "var(--ink)", letterSpacing: "-0.02em" } }, "308"),
+              e("div", { className: "mono", style: { fontSize: 9.5, color: "var(--ink-4)", letterSpacing: "0.1em" } }, "ACTIVELY PRODUCING")
+            )
+          )
+        ),
+
+        // Legend / kind counts
+        e("div", null,
+          e("div", { className: "eyebrow", style: { marginBottom: 12 } }, "// NODE KINDS"),
+          e("div", { style: { display: "flex", flexDirection: "column", gap: 10 } },
+            ["foundation","hal8","dfm23","prime","vector","nexus"].map(function(kind) {
+              var meta = kindMeta[kind];
+              return e("div", { key: kind, style: { display: "flex", alignItems: "center", gap: 10 } },
+                e("span", { style: { width: 9, height: 9, borderRadius: "50%", background: meta.color, flexShrink: 0, boxShadow: "0 0 8px " + meta.color } }),
+                e("span", { style: { flex: 1, fontFamily: "var(--f-display)", fontSize: 13, letterSpacing: "-0.005em", color: "var(--ink-2)" } }, meta.label),
+                e("span", { style: { fontFamily: "var(--f-mono)", fontSize: 11, color: meta.color, letterSpacing: "0.06em" } }, "\u00D7" + (counts[kind] || 0)),
+                e("span", { style: { fontFamily: "var(--f-mono)", fontSize: 8.5, color: "var(--ink-4)", letterSpacing: "0.14em" } }, meta.tag)
+              );
+            })
+          )
+        ),
+
+        // Footer data-provenance mini-block
+        e("div", { style: { marginTop: "auto", paddingTop: 16, borderTop: "1px solid var(--rule-2)" } },
+          e("div", { className: "mono", style: { fontSize: 10, color: "var(--ink-4)", letterSpacing: "0.1em", lineHeight: 1.6 } },
+            "SOURCES \u2014 apexscan.org \u00B7 executive dashboard. Hub snapshot: ", new Date().toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" }).toUpperCase()
+          )
+        )
+      )
+    ),
+
+    // 11.b ENTITY HUBS
+    e(SectionHead, { num: "11.b", title: "Entity hubs", kicker: "verified \u00B7 multi-jurisdiction" }),
+    e("div", { className: "network-entities", style: { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 0, borderTop: "1px solid var(--ink)", borderBottom: "1px solid var(--rule-2)", marginBottom: 48 } },
+      [
+        { hub: entityHubs[0], name: "Apex Fusion Foundation", role: "FINMA\u2011qualified utility token steward", jurisdiction: "Zug, Switzerland", regulatory: "FINMA" },
+        { hub: entityHubs[1], name: "HAL 8",                  role: "Engineering \u00B7 protocol R&D",           jurisdiction: "Abu Dhabi, ADGM",   regulatory: "ADGM" },
+        { hub: entityHubs[2], name: "DFM 23",                 role: "US commercial operations",                 jurisdiction: "Delaware, USA",     regulatory: "Delaware C\u2011corp" }
+      ].map(function(row, i) {
+        var meta = kindMeta[row.hub.kind];
+        return e("div", { key: row.name, style: { padding: "28px 24px", borderRight: i < 2 ? "1px solid var(--rule-2)" : "none", display: "flex", flexDirection: "column", gap: 10 } },
+          e("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center" } },
+            e("span", { className: "mono", style: { fontSize: 10, letterSpacing: "0.18em", color: meta.color } }, "0" + (i + 1)),
+            e("span", { className: "mono", style: { fontSize: 9, letterSpacing: "0.14em", color: "var(--ink-4)", border: "1px solid var(--rule)", padding: "2px 6px", borderRadius: 999 } }, "VERIFIED")
+          ),
+          e("h3", { className: "serif", style: { fontSize: 26, letterSpacing: "-0.02em", lineHeight: 1.05, margin: 0, fontWeight: 500 } }, row.name),
+          e("div", { className: "mono", style: { fontSize: 11, letterSpacing: "0.08em", color: "var(--ink-3)" } }, row.jurisdiction.toUpperCase()),
+          e("p", { style: { fontSize: 13, color: "var(--ink-2)", lineHeight: 1.5, margin: 0 } }, row.role),
+          e("div", { style: { display: "flex", gap: 16, paddingTop: 10, borderTop: "1px solid var(--rule-2)", marginTop: 4 } },
+            e("div", null,
+              e("div", { className: "eyebrow", style: { marginBottom: 3 } }, "Lat/Lng"),
+              e("div", { className: "mono", style: { fontSize: 11, color: "var(--ink)" } }, row.hub.lat.toFixed(2) + "\u00B0, " + row.hub.lng.toFixed(2) + "\u00B0")
+            ),
+            e("div", null,
+              e("div", { className: "eyebrow", style: { marginBottom: 3 } }, "Regime"),
+              e("div", { className: "mono", style: { fontSize: 11, color: "var(--ink)" } }, row.regulatory)
+            )
+          )
+        );
+      })
+    ),
+
+    // 11.c PRIME SPO CLUSTERS — now with real counts
+    e(SectionHead, { num: "11.c", title: "Prime SPO distribution", kicker: "333 registered \u00B7 308 actively producing" }),
+    e("div", { style: { marginBottom: 12 } },
+      e("p", { style: { fontSize: 13, color: "var(--ink-3)", lineHeight: 1.55, margin: 0, maxWidth: "74ch" } },
+        "Apex Scan reports 333 registered stake pools; the Master Executive Dashboard reports 308 actively producing blocks. The 25-pool delta typically reflects pools that are registered but not yet or no longer signing blocks. Cluster markers below show major datacenter regions where SPOs are known to operate \u2014 individual pool geo\u2011tagging is opt\u2011in at the metadata layer."
+      )
+    ),
+    e("div", { className: "network-clusters", style: { display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 0, borderTop: "1px solid var(--ink)", borderBottom: "1px solid var(--rule-2)", marginBottom: 48 } },
+      [
+        { region: "North America", cities: primeClusters.filter(function(n) { return ["Ashburn, VA","Dallas, TX","Portland, OR","Toronto, CA"].indexOf(n.label) >= 0; }) },
+        { region: "Europe",        cities: primeClusters.filter(function(n) { return ["London, UK","Frankfurt, DE","Amsterdam, NL","Stockholm, SE","Warsaw, PL","Dublin, IE"].indexOf(n.label) >= 0; }) },
+        { region: "Asia\u2011Pacific", cities: primeClusters.filter(function(n) { return ["Singapore","Tokyo, JP","Seoul, KR","Hong Kong","Mumbai, IN","Sydney, AU","Auckland, NZ"].indexOf(n.label) >= 0; }) },
+        { region: "Other",         cities: primeClusters.filter(function(n) { return ["Cape Town, ZA","S\u00E3o Paulo, BR"].indexOf(n.label) >= 0; }) }
+      ].map(function(group, i) {
+        return e("div", { key: group.region, style: { padding: "24px 20px", borderRight: i < 3 ? "1px solid var(--rule-2)" : "none", display: "flex", flexDirection: "column", gap: 10 } },
+          e("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "baseline" } },
+            e("span", { className: "mono", style: { fontSize: 11, letterSpacing: "0.14em", color: "var(--prime)" } }, "R" + (i + 1)),
+            e("span", { className: "serif", style: { fontSize: 22, letterSpacing: "-0.02em", color: "var(--ink)" } }, "\u00D7" + group.cities.length)
+          ),
+          e("h3", { className: "serif", style: { fontSize: 17, letterSpacing: "-0.015em", lineHeight: 1.1, margin: 0, fontWeight: 500 } }, group.region),
+          e("ul", { style: { listStyle: "none", padding: 0, margin: "4px 0 0", display: "flex", flexDirection: "column", gap: 4 } },
+            group.cities.map(function(c) { return e("li", { key: c.label, className: "mono", style: { fontSize: 11, color: "var(--ink-3)", letterSpacing: "0.03em" } }, c.label); })
+          )
+        );
+      })
+    ),
+
+    // 11.d L2 VALIDATOR SETS
+    e(SectionHead, { num: "11.d", title: "L2 validator sets", kicker: "Vector \u00B7 Nexus \u00B7 federated bootstrap" }),
+    e("div", { className: "network-l2", style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 0, borderTop: "1px solid var(--ink)", borderBottom: "1px solid var(--rule-2)", marginBottom: 48 } },
+      ["vector", "nexus"].map(function(kind, i) {
+        var meta = kindMeta[kind];
+        var set = l2Validators.filter(function(n) { return n.kind === kind; });
+        var isVector = kind === "vector";
+        return e("div", { key: kind, style: { padding: "28px 24px", borderRight: i === 0 ? "1px solid var(--rule-2)" : "none" } },
+          e("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 } },
+            e("div", { style: { display: "flex", alignItems: "center", gap: 10 } },
+              e("span", { style: { width: 10, height: 10, borderRadius: "50%", background: meta.color, boxShadow: "0 0 8px " + meta.color } }),
+              e("span", { className: "mono", style: { fontSize: 11, letterSpacing: "0.14em", color: meta.color } }, kind.toUpperCase() + " L2")
+            ),
+            e("span", { className: "serif", style: { fontSize: 34, letterSpacing: "-0.03em", color: "var(--ink)", fontWeight: 500 } }, "\u00D7" + set.length)
+          ),
+          e("h3", { className: "serif", style: { fontSize: 22, letterSpacing: "-0.02em", lineHeight: 1.1, margin: "0 0 8px", fontWeight: 500 } },
+            isVector ? "Vector \u2014 eUTXO L2" : "Nexus \u2014 EVM L2"
+          ),
+          e("p", { style: { fontSize: 13, color: "var(--ink-3)", lineHeight: 1.5, margin: "0 0 16px" } },
+            isVector
+              ? "Cardano\u2011style UTXO execution. Haskell node. Validator set federates with Prime via Skyline bridge for cross\u2011chain settlement."
+              : "EVM\u2011compatible L2. Solidity + LayerZero OFT. Sequencer + validators settle state commitments back to Prime through Reactor."
+          ),
+          e("div", { style: { display: "flex", flexWrap: "wrap", gap: 6 } },
+            set.map(function(n) { return e("span", { key: n.label, className: "mono", style: { fontSize: 10.5, letterSpacing: "0.06em", color: "var(--ink-2)", border: "1px solid var(--rule)", padding: "4px 9px", borderRadius: 999 } }, n.label); })
+          )
+        );
+      })
+    ),
+
+    // 11.e METHODOLOGY
+    e("div", { className: "network-footnote", style: { padding: "24px 28px", border: "1px solid var(--rule)", borderRadius: 3, background: "color-mix(in oklch, var(--paper-2) 60%, transparent)", marginBottom: 16 } },
+      e("div", { className: "eyebrow", style: { marginBottom: 12, color: "var(--ink-3)" } }, "// METHODOLOGY \u00B7 DATA PROVENANCE"),
+      e("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 28 } },
+        e("div", null,
+          e("div", { className: "serif", style: { fontSize: 15, letterSpacing: "-0.005em", margin: "0 0 8px", color: "var(--ink)", fontWeight: 500 } }, "Stake pool counts \u2014 live"),
+          e("p", { style: { fontSize: 12.5, color: "var(--ink-3)", lineHeight: 1.55, margin: 0 } },
+            "333 registered pools sourced from apexscan.org; 308 actively producing sourced from the Master Executive Dashboard. Both are live, authoritative explorers for Prime."
+          )
+        ),
+        e("div", null,
+          e("div", { className: "serif", style: { fontSize: 15, letterSpacing: "-0.005em", margin: "0 0 8px", color: "var(--ink)", fontWeight: 500 } }, "Geo markers \u2014 representative"),
+          e("p", { style: { fontSize: 12.5, color: "var(--ink-3)", lineHeight: 1.55, margin: 0 } },
+            "Foundation, HAL\u20118, and DFM 23 coordinates are verified from public corporate registrations. Prime SPO and L2 validator markers are placed at major datacenter regions \u2014 individual node IPs are withheld as standard operational\u2011security practice."
+          )
+        )
+      )
+    ),
+
+    // FOOTER STRIP
+    e("div", { className: "network-foot", style: { marginTop: 16, padding: "20px 0", borderTop: "1px solid var(--rule)", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 16 } },
+      e("div", { style: { display: "flex", gap: 18, alignItems: "center", flexWrap: "wrap" } },
+        e("span", { className: "eyebrow", style: { display: "inline-flex", alignItems: "center", gap: 8 } },
+          e("span", { style: { width: 8, height: 8, background: "var(--accent-2)", display: "inline-block" } }),
+          "Decentralized Network \u00B7 v2026.04"
+        ),
+        e("span", { className: "eyebrow", style: { color: "var(--ink-4)" } }, "NET-02 / REV B")
+      ),
+      e("div", { style: { display: "flex", gap: 12, flexWrap: "wrap" } },
+        e(ExternalLink, { href: "https://apexscan.org/en/" }, "Open Apex Scan"),
+        e(ExternalLink, { href: "https://satoshigreek.github.io/apex-dashboard/master-apex-executive.html" }, "Executive Dashboard")
+      )
+    )
+  );
+}
+
 function TachysSection() {
   const e = React.createElement;
   return e("div", { className: "section-wrap" },
 
     // HERO
     e("div", { style: { paddingTop: 24, marginBottom: 48 } },
-      e("div", { className: "eyebrow", style: { marginBottom: 16, color: "var(--accent-2)" } }, "\xA7 11 \u2014 Partner-Chain Factory"),
+      e("div", { className: "eyebrow", style: { marginBottom: 16, color: "var(--accent-2)" } }, "\xA7 12 \u2014 Partner-Chain Factory"),
       e("h1", { className: "serif", style: { fontSize: "clamp(48px, 7vw, 96px)", lineHeight: 0.95, letterSpacing: "-0.025em", margin: 0, fontWeight: 400 } },
         "Tachýs. ", e("span", { className: "serif-i" }, "The partner"), " chain factory."
       ),
@@ -4591,7 +5190,7 @@ function AgentsSection() {
       marginBottom: 16,
       color: "var(--accent)"
     }
-  }, "\xA7 12 \u2014 Phase II"), /*#__PURE__*/React.createElement("h1", {
+  }, "\xA7 13 \u2014 Phase II"), /*#__PURE__*/React.createElement("h1", {
     className: "serif",
     style: {
       fontSize: "clamp(48px, 7vw, 96px)",
@@ -4838,7 +5437,7 @@ const SYSTEM_PROMPT = `You are Fusion AI, a concise assistant for the Apex Fusio
 Key facts:
 - Tri-chain architecture, all mainnet: Prime (UTXO L1, Ouroboros PoS, launched Feb 2025), Nexus (EVM L2, IBFT 2.0, ~5s blocks, launched Sep 2025), Vector (UTXO L2, PlutusV3, Conway era, launched Dec 2025)
 - Native token: AP3X (3B max supply, FINMA-qualified Swiss utility token)
-- Staking: liquid, ~10% APY, no lock-ups, no slashing, 260+ pools, rewards every 5d. Delegate from Eternl. Docs at https://developers.apexfusion.org/documentation/l1-staking-basics
+- Staking: liquid, ~10% APY, no lock-ups, no slashing, 300+ pools, rewards every 5d. Delegate from Eternl. Docs at https://developers.apexfusion.org/documentation/l1-staking-basics
 - Bridges: Reactor (native, Prime↔Vector↔Nexus), Skyline (to Cardano/Base/BSC via LayerZero OFT), Stargate (omnichain + USDC.e)
 - Variants: AP3X (native), cAP3X (Cardano), cstAP3X (liquid-staked on Cardano), bAP3X (Base), bnAP3X (BSC)
 - Wallets: Eternl for UTXO (Prime/Vector/Cardano), MetaMask for EVM (Nexus/Base/BSC)
@@ -5170,6 +5769,7 @@ const SECTION_COMPONENTS = {
   socials: SocialsSection,
   developers: DevelopersSection,
   exchanges: ExchangesSection,
+  network: NetworkSection,
   tachys: TachysSection,
   agents: AgentsSection
 };
