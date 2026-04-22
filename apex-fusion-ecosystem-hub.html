@@ -352,6 +352,50 @@ a { color: inherit; -webkit-tap-highlight-color: transparent; }
   .main-pad .serif[style*="font-size: 56px"] { font-size: 38px !important; }
 }
 
+/* ========== TACHÝS SECTION — MOBILE LAYOUT ========== */
+@media (max-width: 900px) {
+  /* Stack every Tachýs multi-column grid into a single column and swap vertical
+     dividers for horizontal ones so cells read top-to-bottom cleanly. */
+  .tachys-perf,
+  .tachys-pipeline,
+  .tachys-flywheel,
+  .tachys-agent-native {
+    grid-template-columns: 1fr !important;
+    margin-bottom: 48px !important;
+  }
+  .tachys-perf > div,
+  .tachys-pipeline > div,
+  .tachys-flywheel > div,
+  .tachys-agent-native > div {
+    border-right: none !important;
+    border-bottom: 1px solid var(--rule-2);
+    padding: 28px 20px !important;
+  }
+  .tachys-perf > div:last-child,
+  .tachys-pipeline > div:last-child,
+  .tachys-flywheel > div:last-child,
+  .tachys-agent-native > div:last-child {
+    border-bottom: none;
+  }
+  /* Keep the dark 40× delta card readable on narrow screens */
+  .tachys-delta-num {
+    font-size: clamp(72px, 22vw, 104px) !important;
+  }
+  /* Shrink the performance big stat numbers a touch */
+  .tachys-perf .serif[style*="font-size: 64px"] { font-size: 52px !important; }
+  .tachys-perf .serif[style*="font-size: 44px"] { font-size: 36px !important; }
+  /* Footer strip stacks left-aligned */
+  .tachys-foot { flex-direction: column; align-items: flex-start !important; gap: 14px !important; }
+}
+
+@media (max-width: 480px) {
+  .tachys-perf > div,
+  .tachys-pipeline > div,
+  .tachys-flywheel > div,
+  .tachys-agent-native > div { padding: 24px 16px !important; }
+  .tachys-delta-num { font-size: clamp(64px, 24vw, 88px) !important; }
+}
+
 /* Overlay backdrop when nav drawer is open on mobile */
 @media (max-width: 900px) {
   .nav-backdrop {
@@ -368,6 +412,70 @@ a { color: inherit; -webkit-tap-highlight-color: transparent; }
 
 .section-wrap { animation: sectionIn 0.5s cubic-bezier(.2,.7,.2,1) both; }
 @keyframes sectionIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+/* ========== OVERVIEW BANNER (AP3X FUSION) ========== */
+.overview-banner {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 20px 0 26px;
+  margin: 0 0 8px;
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+  position: relative;
+}
+.overview-banner::before, .overview-banner::after {
+  content: '';
+  position: absolute;
+  left: 0; right: 0;
+  height: 1px;
+  background: var(--rule-2);
+  pointer-events: none;
+}
+.overview-banner::before { top: 4px; }
+.overview-banner::after  { bottom: 4px; }
+
+.overview-banner-text {
+  font-family: var(--f-display);
+  font-weight: 700;
+  font-size: clamp(40px, 8.5vw, 112px);
+  letter-spacing: -0.05em;
+  line-height: 0.9;
+  color: var(--ink);
+  text-transform: uppercase;
+  display: inline-flex;
+  align-items: center;
+  gap: clamp(14px, 2.2vw, 28px);
+  white-space: nowrap;
+}
+.overview-banner-fusion {
+  font-weight: 300;
+  color: var(--accent);
+}
+.overview-banner-diamond {
+  display: inline-block;
+  width: clamp(8px, 1.2vw, 14px);
+  height: clamp(8px, 1.2vw, 14px);
+  background: var(--accent);
+  transform: rotate(45deg);
+  box-shadow: 0 0 18px color-mix(in oklch, var(--accent) 60%, transparent);
+}
+.overview-banner-rule {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--rule) 40%, var(--rule) 60%, transparent);
+  min-width: 24px;
+}
+
+@media (max-width: 900px) {
+  .overview-banner { gap: 12px; padding: 16px 0 20px; margin-bottom: 4px; }
+  .overview-banner-text { gap: 10px; }
+  .overview-banner-rule { min-width: 12px; }
+}
+@media (max-width: 480px) {
+  .overview-banner-text { font-size: clamp(28px, 11vw, 44px) !important; letter-spacing: -0.04em; }
+  .overview-banner-diamond { width: 7px !important; height: 7px !important; }
+}
 
 @keyframes boltFade {
   0%   { opacity: 0; }
@@ -2272,6 +2380,19 @@ function OverviewSection() {
   return /*#__PURE__*/React.createElement("div", {
     className: "section-wrap"
   }, /*#__PURE__*/React.createElement("div", {
+    className: "overview-banner"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "overview-banner-rule"
+  }), /*#__PURE__*/React.createElement("span", {
+    className: "overview-banner-text"
+  }, "AP3X", /*#__PURE__*/React.createElement("span", {
+    className: "overview-banner-diamond",
+    "aria-hidden": "true"
+  }), /*#__PURE__*/React.createElement("span", {
+    className: "overview-banner-fusion"
+  }, "FUSION")), /*#__PURE__*/React.createElement("span", {
+    className: "overview-banner-rule"
+  })), /*#__PURE__*/React.createElement("div", {
     ref: heroRef,
     className: "hero-grid",
     style: {
@@ -4237,7 +4358,7 @@ function TachysSection() {
 
     // 11.b — PERFORMANCE
     e(SectionHead, { num: "11.b", title: "Performance", kicker: "40\xD7 throughput, 1\u20132s finality" }),
-    e("div", { style: { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 0, borderTop: "1px solid var(--ink)", borderBottom: "1px solid var(--rule-2)", marginBottom: 64 } },
+    e("div", { className: "tachys-perf", style: { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 0, borderTop: "1px solid var(--ink)", borderBottom: "1px solid var(--rule-2)", marginBottom: 64 } },
       // Baseline
       e("div", { style: { padding: "36px 32px", borderRight: "1px solid var(--rule-2)" } },
         e("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 } },
@@ -4262,7 +4383,7 @@ function TachysSection() {
           e("div", { className: "eyebrow", style: { color: "color-mix(in oklch, var(--paper) 70%, transparent)" } }, "Headline gain")
         ),
         e("div", { style: { position: "relative" } },
-          e("div", { className: "serif", style: { fontSize: 132, lineHeight: 0.85, letterSpacing: "-0.05em", margin: "8px 0 8px", fontWeight: 500 } },
+          e("div", { className: "serif tachys-delta-num", style: { fontSize: 132, lineHeight: 0.85, letterSpacing: "-0.05em", margin: "8px 0 8px", fontWeight: 500 } },
             "40", e("span", { className: "serif-i", style: { color: "var(--vector)" } }, "\xD7")
           ),
           e("div", { className: "eyebrow", style: { color: "var(--vector)" } }, "Throughput uplift")
@@ -4293,7 +4414,7 @@ function TachysSection() {
 
     // 11.c — PIPELINE
     e(SectionHead, { num: "11.c", title: "Toolkit", kicker: "genesis \u2192 deployment \u2192 bridging" }),
-    e("div", { style: { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 0, borderTop: "1px solid var(--ink)", borderBottom: "1px solid var(--rule-2)", marginBottom: 64 } },
+    e("div", { className: "tachys-pipeline", style: { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 0, borderTop: "1px solid var(--ink)", borderBottom: "1px solid var(--rule-2)", marginBottom: 64 } },
       [
         ["01", "Genesis", "configuration", "Declare validators, epoch length, fee model, token policy \u2014 all in a single spec file. Machine-readable. Diffable. Reviewable.", ["spec", "validators", "params"], "var(--accent-2)"],
         ["02", "Automated", "deployment", "Reproducible builds ship node binaries, relayers, and explorer endpoints. One command. Same artifact from testnet to mainnet.", ["CI/CD", "node", "relayer"], "var(--vector)"],
@@ -4312,7 +4433,7 @@ function TachysSection() {
 
     // 11.d — FLYWHEEL
     e(SectionHead, { num: "11.d", title: "Flywheel", kicker: "every new chain drives ADA demand" }),
-    e("div", { style: { display: "grid", gridTemplateColumns: "minmax(0, 1.2fr) minmax(0, 1fr)", gap: 0, borderTop: "1px solid var(--ink)", borderBottom: "1px solid var(--rule-2)", marginBottom: 64 } },
+    e("div", { className: "tachys-flywheel", style: { display: "grid", gridTemplateColumns: "minmax(0, 1.2fr) minmax(0, 1fr)", gap: 0, borderTop: "1px solid var(--ink)", borderBottom: "1px solid var(--rule-2)", marginBottom: 64 } },
       // Diagram
       e("div", { style: { padding: "48px 32px", borderRight: "1px solid var(--rule-2)", position: "relative", overflow: "hidden" } },
         e("div", { style: { position: "absolute", inset: 0, background: "radial-gradient(50% 60% at 50% 50%, color-mix(in oklch, var(--cardano) 12%, transparent), transparent 70%)", pointerEvents: "none" } }),
@@ -4398,7 +4519,7 @@ function TachysSection() {
 
     // 11.e — AGENT-NATIVE
     e(SectionHead, { num: "11.e", title: "Agent-native", kicker: "the spec is the interface" }),
-    e("div", { style: { display: "grid", gridTemplateColumns: "minmax(0, 1.4fr) minmax(260px, 1fr)", gap: 0, borderTop: "1px solid var(--ink)", borderBottom: "1px solid var(--rule-2)", marginBottom: 48 } },
+    e("div", { className: "tachys-agent-native", style: { display: "grid", gridTemplateColumns: "minmax(0, 1.4fr) minmax(260px, 1fr)", gap: 0, borderTop: "1px solid var(--ink)", borderBottom: "1px solid var(--rule-2)", marginBottom: 48 } },
       // Left
       e("div", { style: { padding: "40px 32px", borderRight: "1px solid var(--rule-2)" } },
         e("div", { className: "eyebrow", style: { color: "var(--accent-2)", marginBottom: 20 } }, "// MACHINE-READABLE BY DEFAULT"),
@@ -4438,7 +4559,7 @@ function TachysSection() {
     ),
 
     // FOOTER STRIP
-    e("div", { style: { marginTop: 16, padding: "20px 0", borderTop: "1px solid var(--rule)", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 16 } },
+    e("div", { className: "tachys-foot", style: { marginTop: 16, padding: "20px 0", borderTop: "1px solid var(--rule)", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 16 } },
       e("div", { style: { display: "flex", gap: 18, alignItems: "center", flexWrap: "wrap" } },
         e("span", { className: "eyebrow", style: { display: "inline-flex", alignItems: "center", gap: 8 } },
           e("span", { style: { width: 8, height: 8, background: "var(--vector)", display: "inline-block" } }),
