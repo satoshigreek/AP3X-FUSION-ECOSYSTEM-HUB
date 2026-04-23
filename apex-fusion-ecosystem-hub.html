@@ -631,6 +631,33 @@ a { color: inherit; -webkit-tap-highlight-color: transparent; }
   background: radial-gradient(80% 100% at 50% 50%, color-mix(in oklch, var(--accent-2) 6%, var(--paper)), var(--paper));
 }
 .fusion-chamber-svg-wrap svg { max-height: 620px; }
+.fusion-chamber-canvas-wrap {
+  position: relative;
+  padding: 0;
+  width: 100%;
+  height: clamp(420px, 64vh, 640px);
+  overflow: hidden;
+  background: radial-gradient(80% 100% at 50% 50%, color-mix(in oklch, var(--accent-2) 8%, var(--paper-2)), var(--paper));
+  cursor: grab;
+  touch-action: none;
+}
+.fusion-chamber-canvas-wrap canvas { display: block; width: 100%; height: 100%; }
+.fusion-chamber-canvas-wrap:active { cursor: grabbing; }
+.fusion-chamber-tooltip {
+  position: absolute; left: 0; top: 0;
+  pointer-events: none; opacity: 0;
+  transition: opacity 0.12s;
+  background: color-mix(in oklch, var(--paper-2) 95%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  padding: 10px 13px;
+  font-size: 12px; color: var(--ink);
+  max-width: 280px; line-height: 1.4;
+  box-shadow: 0 20px 40px -12px rgba(0,0,0,0.7);
+  z-index: 10;
+}
 .fusion-chamber-legend {
   display: flex;
   gap: 0;
@@ -730,6 +757,7 @@ a { color: inherit; -webkit-tap-highlight-color: transparent; }
   .registry-methodology > div[style*="grid-template-columns"] { grid-template-columns: 1fr !important; gap: 18px !important; }
   .registry-foot { flex-direction: column; align-items: flex-start !important; }
   .fusion-chamber-svg-wrap svg { max-height: 480px; }
+  .fusion-chamber-canvas-wrap { height: clamp(360px, 56vh, 520px); }
   .fusion-legend-chip { flex: 1 1 33%; font-size: 9px; padding: 10px 8px; }
 }
 @media (max-width: 480px) {
@@ -748,6 +776,7 @@ a { color: inherit; -webkit-tap-highlight-color: transparent; }
     width: 100%;
   }
   .fusion-chamber-svg-wrap svg { max-height: 380px; }
+  .fusion-chamber-canvas-wrap { height: clamp(320px, 52vh, 440px); }
 }
 
 /* Overlay backdrop when nav drawer is open on mobile */
@@ -1217,6 +1246,36 @@ h1.display, h2.display, .display {
 ============================================================= -->
 <script>
   window.FUSION_AI_ENDPOINT = null; // e.g. "https://fusion-ai-proxy.yoursubdomain.workers.dev"
+</script>
+
+<!-- ============================================================
+     Three.js loader for the Fusion Chamber (§12).
+     ES-module import with importmap; exposes THREE + OrbitControls
+     on window and dispatches a `three-ready` event once available.
+     The FusionChamber React component waits for this event if
+     THREE isn't already loaded at mount time.
+============================================================= -->
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+<script type="module">
+  try {
+    const THREE = await import('three');
+    const { OrbitControls } = await import('three/addons/controls/OrbitControls.js');
+    window.THREE = THREE;
+    window.THREE_OrbitControls = OrbitControls;
+    window.dispatchEvent(new Event('three-ready'));
+  } catch (err) {
+    // Fail silently — the FusionChamber component shows a graceful fallback.
+    console.warn('[FusionChamber] Three.js failed to load:', err);
+    window.__THREE_LOAD_ERROR = String(err && err.message || err);
+    window.dispatchEvent(new Event('three-error'));
+  }
 </script>
 
 <!-- Splash renders immediately while React + Babel load from CDN -->
@@ -5467,247 +5526,978 @@ function NetworkSection() {
 
 function FusionChamber(props) {
   const e = React.createElement;
-  const agents = props.agents;
+  const agents = props.agents || [];
   const N = agents.length;
 
-  const svgRef = useRef(null);
-  const agentRefs = useRef([]);
-  const labelRefs = useRef([]);
-  const boltRefs = useRef([]);
-  const rotRef = useRef(0);
+  const containerRef = useRef(null);
+  const tooltipRef = useRef(null);
+  const statusRef = useRef(null);
 
-  const frameworkColors = {
-    "LangChain":      "#6FB38A",
-    "CrewAI":         "#5DB3C5",
-    "Claude Desktop": "#D9583E",
-    "OpenClaw":       "#E8801F"
+  // Framework colors harmonized with the AP3X Fusion palette.
+  // (Falls back to a hash-derived color for unknown frameworks.)
+  const FW_COLORS = {
+    "LangChain":      0x5E9BD6,   // cool teal-blue
+    "CrewAI":         0x4BB8A9,   // mineral teal
+    "Claude Desktop": 0xD9583E,   // ember
+    "OpenClaw":       0xF2A03C,   // ignition
+    "autogen":        0xB08AD9,   // dusk violet
+    "llamaindex":     0x9FC76A,   // mossy lime
+    "haystack":       0x7FD5A1    // emerald-soft
   };
-  const msgTypeColors = {
-    inquiry:     "#6FB38A",
-    response:    "#5DB3C5",
-    proposal:    "#E8801F",
-    endorsement: "#D9583E",
-    alert:       "#FF5436"
-  };
-
-  // Deterministic fallback color when framework unknown
-  function hashColor(name) {
+  const PALETTE_FALLBACK = [
+    0x4BB87A, 0xD9583E, 0xF2A03C, 0x7FD5A1, 0x5E9BD6,
+    0xB08AD9, 0x4BB8A9, 0xE08AA5, 0x9FC76A, 0x9A2E1E
+  ];
+  function fwHash(s) {
     var h = 0;
-    for (var i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) | 0;
-    var palette = ["#6FB38A", "#5DB3C5", "#D9583E", "#E8801F"];
-    return palette[Math.abs(h) % palette.length];
+    for (var i = 0; i < (s || "").length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
+    return Math.abs(h);
   }
-
-  // Fibonacci sphere
-  var positions = [];
-  for (var pi = 0; pi < N; pi++) {
-    var yOff = 1 - (pi / Math.max(1, N - 1)) * 2;
-    var rr = Math.sqrt(Math.max(0, 1 - yOff * yOff));
-    var theta = Math.PI * (1 + Math.sqrt(5)) * pi;
-    positions.push({ x: Math.cos(theta) * rr, y: yOff, z: Math.sin(theta) * rr });
+  function colorForFramework(fw) {
+    if (fw && FW_COLORS[fw] != null) return FW_COLORS[fw];
+    if (!fw) return 0x7A9285;
+    return PALETTE_FALLBACK[fwHash(fw) % PALETTE_FALLBACK.length];
   }
+  function escapeHtml(s) {
+    return String(s == null ? "" : s)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  }
+  function toHex(n) { return "#" + n.toString(16).padStart(6, "0"); }
 
   useEffect(function() {
-    var raf;
-    var CX = 300, CY = 300, R = 180;
-    var tilt = Math.PI / 9;
-    var BOLT_POOL = 4;
-    var bolts = [];
-    for (var bi = 0; bi < BOLT_POOL; bi++) bolts.push({ active: false, startTime: 0, duration: 0, from: 0, to: 0, type: "inquiry", seed: 0 });
-    var lastSpawn = 0;
+    var container = containerRef.current;
+    if (!container) return;
 
-    function project(p, rotY) {
-      var cosRY = Math.cos(rotY), sinRY = Math.sin(rotY);
-      var x1 = p.x * cosRY + p.z * sinRY;
-      var z1 = -p.x * sinRY + p.z * cosRY;
-      var y1 = p.y;
-      var cosT = Math.cos(tilt), sinT = Math.sin(tilt);
-      var y2 = y1 * cosT - z1 * sinT;
-      var z2 = y1 * sinT + z1 * cosT;
-      var persp = 500 / (500 - z2 * 180);
-      return { sx: CX + x1 * R * persp, sy: CY - y2 * R * persp, depth: z2, scale: persp };
+    var cancelled = false;
+    var cleanupFns = [];
+    var raf = null;
+
+    function setStatus(msg) {
+      if (statusRef.current) statusRef.current.textContent = msg;
     }
 
-    function mk_bolt_d(a, b, seed) {
-      var dx = b.sx - a.sx, dy = b.sy - a.sy;
-      var dist = Math.sqrt(dx*dx + dy*dy) || 1;
-      var perpX = -dy / dist, perpY = dx / dist;
-      var maxJ = Math.min(28, dist * 0.15);
-      var SEGS = 6;
-      var d = "M" + a.sx.toFixed(0) + "," + a.sy.toFixed(0);
-      for (var i = 1; i < SEGS; i++) {
-        var t = i / SEGS;
-        var bx = a.sx + dx * t, by = a.sy + dy * t;
-        var rv = Math.sin(seed * 12.9898 + i * 78.233 + seed * 0.3);
-        var j = ((rv * 43758.5453) % 1 - 0.5) * 2 * maxJ;
-        d += "L" + (bx + perpX * j).toFixed(0) + "," + (by + perpY * j).toFixed(0);
+    function boot() {
+      if (cancelled) return;
+      var THREE = window.THREE;
+      var OrbitControlsClass = window.THREE_OrbitControls;
+
+      if (window.__THREE_LOAD_ERROR) {
+        setStatus("3D engine unavailable — see console");
+        return;
       }
-      d += "L" + b.sx.toFixed(0) + "," + b.sy.toFixed(0);
-      return d;
+
+      if (!THREE || !OrbitControlsClass) {
+        setStatus("Initializing 3D engine…");
+        var onReady = function() {
+          window.removeEventListener("three-ready", onReady);
+          window.removeEventListener("three-error", onError);
+          boot();
+        };
+        var onError = function() {
+          window.removeEventListener("three-ready", onReady);
+          window.removeEventListener("three-error", onError);
+          setStatus("3D engine failed to load");
+        };
+        window.addEventListener("three-ready", onReady);
+        window.addEventListener("three-error", onError);
+        cleanupFns.push(function() {
+          window.removeEventListener("three-ready", onReady);
+          window.removeEventListener("three-error", onError);
+        });
+        return;
+      }
+
+      setStatus("");
+      build(THREE, OrbitControlsClass);
     }
 
-    function tick(now) {
-      rotRef.current += 0.0035;
-      var rot = rotRef.current;
-      var projs = positions.map(function(p) { return project(p, rot); });
-      var order = [];
-      for (var i = 0; i < N; i++) order.push(i);
-      order.sort(function(a, b) { return projs[a].depth - projs[b].depth; });
+    function build(THREE, OrbitControlsClass) {
+      if (cancelled) return;
 
-      for (var oi = 0; oi < N; oi++) {
-        var idx = order[oi];
-        var p = projs[idx];
-        var g = agentRefs.current[idx];
-        if (g) {
-          g.setAttribute("transform", "translate(" + p.sx.toFixed(1) + "," + p.sy.toFixed(1) + ") scale(" + p.scale.toFixed(2) + ")");
-          var op = (p.depth + 1) / 2;
-          g.setAttribute("opacity", (0.35 + op * 0.65).toFixed(2));
-          if (g.parentNode) g.parentNode.appendChild(g);
-        }
-        var lbl = labelRefs.current[idx];
-        if (lbl) {
-          var lx = p.sx + 11 * p.scale;
-          var ly = p.sy + 3;
-          lbl.setAttribute("x", lx.toFixed(1));
-          lbl.setAttribute("y", ly.toFixed(1));
-          lbl.setAttribute("opacity", (p.depth < -0.3 ? 0 : (0.35 + ((p.depth + 1) / 2) * 0.65)).toFixed(2));
-        }
+      var width  = container.clientWidth  || 800;
+      var height = container.clientHeight || 560;
+
+      // ── Scene / camera / renderer ──────────────────────────────────────────
+      var scene = new THREE.Scene();
+      scene.fog = new THREE.FogExp2(0x07100C, 0.0095);
+
+      // Dynamic sphere sizing so 18 or 48 agents both look coherent
+      var SPHERE_RADIUS = Math.max(18, Math.min(34, 14 + N * 0.55));
+
+      var camera = new THREE.PerspectiveCamera(48, width / height, 0.1, 2000);
+      // Frame both the reactor core and the agent sphere
+      camera.position.set(0, SPHERE_RADIUS * 0.75, SPHERE_RADIUS * 2.6);
+
+      var renderer = new THREE.WebGLRenderer({
+        antialias: true, alpha: true, powerPreference: "high-performance"
+      });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      renderer.setSize(width, height);
+      renderer.setClearColor(0x000000, 0);
+      var canvas = renderer.domElement;
+      canvas.style.display = "block";
+      canvas.style.width   = "100%";
+      canvas.style.height  = "100%";
+      canvas.style.cursor  = "grab";
+      container.appendChild(canvas);
+
+      var controls = new OrbitControlsClass(camera, canvas);
+      controls.enableDamping    = true;
+      controls.dampingFactor    = 0.085;
+      controls.rotateSpeed      = 0.55;
+      controls.zoomSpeed        = 0.7;
+      controls.autoRotate       = true;
+      controls.autoRotateSpeed  = 0.18;
+      controls.minDistance      = SPHERE_RADIUS * 0.7;
+      controls.maxDistance      = SPHERE_RADIUS * 6;
+      controls.minPolarAngle    = Math.PI * 0.15;
+      controls.maxPolarAngle    = Math.PI * 0.85;
+      controls.enablePan        = false;
+
+      // ── Lighting ───────────────────────────────────────────────────────────
+      scene.add(new THREE.AmbientLight(0xEAF3EC, 0.32));
+      var keyLight = new THREE.DirectionalLight(0xEAF3EC, 0.35);
+      keyLight.position.set(0, 30, 40); scene.add(keyLight);
+      var coreLight = new THREE.PointLight(0xF2A03C, 2.2, 140, 1.4);
+      coreLight.position.set(0, 0, 0); scene.add(coreLight);
+      var rimLight = new THREE.PointLight(0x4BB87A, 0.8, 220);
+      rimLight.position.set(-80, 20, -40); scene.add(rimLight);
+      var fillLight = new THREE.PointLight(0xD9583E, 0.55, 200);
+      fillLight.position.set(70, -15, -30); scene.add(fillLight);
+
+      // ── FUSION REACTOR CORE ────────────────────────────────────────────────
+      var coreGroup = new THREE.Group();
+      scene.add(coreGroup);
+
+      // Plasma torus — shader-lit tokamak plasma
+      var plasmaGeo = new THREE.TorusGeometry(4.2, 1.15, 48, 180);
+      var plasmaMat = new THREE.ShaderMaterial({
+        transparent: true, depthWrite: false,
+        blending: THREE.AdditiveBlending,
+        uniforms: {
+          uTime:      { value: 0 },
+          uHot:       { value: new THREE.Color(0xFFE7B0) },
+          uWarm:      { value: new THREE.Color(0xF2A03C) },
+          uMid:       { value: new THREE.Color(0xD9583E) },
+          uCool:      { value: new THREE.Color(0x9A2E1E) },
+          uIntensity: { value: 1.0 }
+        },
+        vertexShader: [
+          "varying vec2 vUv;",
+          "varying vec3 vNormal;",
+          "void main() {",
+          "  vUv = uv;",
+          "  vNormal = normalize(normalMatrix * normal);",
+          "  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);",
+          "}"
+        ].join("\n"),
+        fragmentShader: [
+          "uniform float uTime;",
+          "uniform float uIntensity;",
+          "uniform vec3 uHot, uWarm, uMid, uCool;",
+          "varying vec2 vUv;",
+          "varying vec3 vNormal;",
+          "float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7)))*43758.5453); }",
+          "float noise(vec2 p){",
+          "  vec2 i=floor(p), f=fract(p);",
+          "  float a=hash(i), b=hash(i+vec2(1,0)), c=hash(i+vec2(0,1)), d=hash(i+vec2(1,1));",
+          "  vec2 u=f*f*(3.0-2.0*f);",
+          "  return mix(mix(a,b,u.x), mix(c,d,u.x), u.y);",
+          "}",
+          "float fbm(vec2 p){",
+          "  float v=0.0, a=0.5;",
+          "  for(int i=0;i<5;i++){ v+=a*noise(p); p*=2.1; a*=0.5; }",
+          "  return v;",
+          "}",
+          "void main(){",
+          "  vec2 flow = vec2(vUv.x*12.0 + uTime*0.35, vUv.y*3.0 - uTime*0.18);",
+          "  float n = fbm(flow);",
+          "  float n2 = fbm(flow*2.3 + vec2(uTime*0.6, 0.0));",
+          "  float plasma = mix(n, n2, 0.5);",
+          "  float streak = pow(plasma, 2.2);",
+          "  float crossHeat = 1.0 - smoothstep(0.3, 0.5, abs(vUv.y - 0.5));",
+          "  vec3 col = mix(uCool, uMid, crossHeat);",
+          "  col = mix(col, uWarm, streak * crossHeat);",
+          "  col = mix(col, uHot, pow(streak * crossHeat, 4.0));",
+          "  float edge = smoothstep(0.0, 0.12, vUv.y) * smoothstep(1.0, 0.88, vUv.y);",
+          "  float alpha = (0.55 + 0.45*plasma) * edge * uIntensity;",
+          "  float rim = pow(1.0 - abs(vNormal.z), 1.6);",
+          "  col += uHot * rim * 0.22;",
+          "  alpha *= (0.85 + rim*0.4);",
+          "  gl_FragColor = vec4(col, alpha);",
+          "}"
+        ].join("\n")
+      });
+      var plasma = new THREE.Mesh(plasmaGeo, plasmaMat);
+      plasma.rotation.x = Math.PI / 2;
+      coreGroup.add(plasma);
+
+      // Plasma inner white-hot thin ring
+      var plasmaCoreGeo = new THREE.TorusGeometry(4.2, 0.28, 20, 160);
+      var plasmaCoreMat = new THREE.MeshBasicMaterial({
+        color: 0xFFF2CC, transparent: true, opacity: 0.9,
+        blending: THREE.AdditiveBlending, depthWrite: false
+      });
+      var plasmaCore = new THREE.Mesh(plasmaCoreGeo, plasmaCoreMat);
+      plasmaCore.rotation.x = Math.PI / 2;
+      coreGroup.add(plasmaCore);
+
+      // Magnetic confinement coils
+      var coilCount = 14;
+      var coilGroup = new THREE.Group();
+      coreGroup.add(coilGroup);
+      var coilMat    = new THREE.MeshBasicMaterial({ color: 0x7FD5A1, transparent: true, opacity: 0.55 });
+      var coilMatDim = new THREE.MeshBasicMaterial({ color: 0x4BB87A, transparent: true, opacity: 0.28 });
+      var coilGeo    = new THREE.TorusGeometry(1.45, 0.05, 8, 64);
+      var strutGeo   = new THREE.CylinderGeometry(0.025, 0.025, 1.2, 6);
+      var coilDisposables = [coilMat, coilMatDim, coilGeo, strutGeo];
+      for (var ci = 0; ci < coilCount; ci++) {
+        var cang = (ci / coilCount) * Math.PI * 2;
+        var R = 4.2;
+        var coil = new THREE.Mesh(coilGeo, coilMat);
+        coil.position.set(Math.cos(cang) * R, 0, Math.sin(cang) * R);
+        coil.rotation.y = cang + Math.PI / 2;
+        coil.rotation.x = Math.PI / 2;
+        coilGroup.add(coil);
+        var strut = new THREE.Mesh(strutGeo, coilMatDim);
+        strut.position.set(Math.cos(cang) * (R - 0.6), 0, Math.sin(cang) * (R - 0.6));
+        strut.rotation.z = Math.PI / 2;
+        strut.rotation.y = cang;
+        coilGroup.add(strut);
       }
 
-      if (now - lastSpawn > 280) {
-        var freeSlot = -1;
-        for (var bi2 = 0; bi2 < bolts.length; bi2++) if (!bolts[bi2].active) { freeSlot = bi2; break; }
-        if (freeSlot >= 0) {
-          var front = [];
-          for (var fi = 0; fi < N; fi++) if (projs[fi].depth > -0.15) front.push(fi);
-          if (front.length >= 2) {
-            var ia = front[Math.floor(Math.random() * front.length)];
-            var ib = front[Math.floor(Math.random() * front.length)];
-            var tries = 0;
-            while (ib === ia && tries < 5) { ib = front[Math.floor(Math.random() * front.length)]; tries++; }
-            if (ib !== ia) {
-              var msgTypes = ["inquiry", "response", "proposal", "endorsement", "alert"];
-              bolts[freeSlot] = {
-                active: true, startTime: now,
-                duration: 500 + Math.random() * 500,
-                from: ia, to: ib,
-                type: msgTypes[Math.floor(Math.random() * msgTypes.length)],
-                seed: Math.random() * 1000
-              };
-              lastSpawn = now;
+      // Central solenoid + banding
+      var solenoidGeo = new THREE.CylinderGeometry(0.55, 0.55, 9, 32, 1, true);
+      var solenoidMat = new THREE.MeshBasicMaterial({
+        color: 0xF2A03C, transparent: true, opacity: 0.45,
+        blending: THREE.AdditiveBlending, side: THREE.DoubleSide, depthWrite: false
+      });
+      var solenoid = new THREE.Mesh(solenoidGeo, solenoidMat);
+      coreGroup.add(solenoid);
+      var bandGeo = new THREE.TorusGeometry(0.62, 0.035, 8, 32);
+      var bandMat = new THREE.MeshBasicMaterial({ color: 0xF2A03C, transparent: true, opacity: 0.7 });
+      for (var bi = 0; bi < 9; bi++) {
+        var band = new THREE.Mesh(bandGeo, bandMat);
+        band.rotation.x = Math.PI / 2;
+        band.position.y = -4 + bi * 1.0;
+        coreGroup.add(band);
+      }
+
+      // White-hot core dot
+      var dotGeo = new THREE.SphereGeometry(0.55, 20, 20);
+      var dotMat = new THREE.MeshBasicMaterial({
+        color: 0xFFF7E0, blending: THREE.AdditiveBlending,
+        transparent: true, opacity: 0.9
+      });
+      coreGroup.add(new THREE.Mesh(dotGeo, dotMat));
+
+      // Outer containment vessel
+      var vesselGeo = new THREE.IcosahedronGeometry(7.5, 2);
+      var vesselMat = new THREE.MeshBasicMaterial({
+        color: 0x4BB87A, wireframe: true, transparent: true, opacity: 0.08
+      });
+      var vessel = new THREE.Mesh(vesselGeo, vesselMat);
+      coreGroup.add(vessel);
+
+      // ── Confinement sphere — wireframe + 3 reference circles ───────────────
+      var ringGroup = new THREE.Group();
+      scene.add(ringGroup);
+      var ringMeshes = [];
+
+      var sphereWireGeo = new THREE.SphereGeometry(SPHERE_RADIUS, 40, 24);
+      var sphereWireMat = new THREE.MeshBasicMaterial({
+        color: 0x1F3A30, wireframe: true, transparent: true, opacity: 0.12
+      });
+      var sphereWire = new THREE.Mesh(sphereWireGeo, sphereWireMat);
+      ringGroup.add(sphereWire);
+      ringMeshes.push({ mesh: sphereWire, base: 0 });
+
+      (function() {
+        var NP = 256;
+        var pts = [];
+        for (var ip = 0; ip <= NP; ip++) {
+          var aa = (ip / NP) * Math.PI * 2;
+          pts.push(new THREE.Vector3(
+            Math.cos(aa) * SPHERE_RADIUS, 0, Math.sin(aa) * SPHERE_RADIUS
+          ));
+        }
+        var geo = new THREE.BufferGeometry().setFromPoints(pts);
+        var mkCircle = function(op, col) {
+          return new THREE.LineLoop(geo,
+            new THREE.LineBasicMaterial({ color: col, transparent: true, opacity: op })
+          );
+        };
+        var equator = mkCircle(0.55, 0x2A4D3E);
+        ringGroup.add(equator);
+        var tilt1 = mkCircle(0.35, 0x1F3A30);
+        tilt1.rotation.x = Math.PI / 3;
+        ringGroup.add(tilt1);
+        ringMeshes.push({ mesh: tilt1, base: 1 });
+        var tilt2 = mkCircle(0.32, 0x1F3A30);
+        tilt2.rotation.z = Math.PI / 4;
+        tilt2.rotation.y = Math.PI / 6;
+        ringGroup.add(tilt2);
+        ringMeshes.push({ mesh: tilt2, base: 2 });
+      })();
+
+      // ── Plasma filaments — breathing arcs on the sphere ────────────────────
+      var filamentGroup = new THREE.Group();
+      scene.add(filamentGroup);
+      var filaments = [];
+      function randSpherePoint(r) {
+        var u = Math.random() * 2 - 1;
+        var th = Math.random() * Math.PI * 2;
+        var rxy = Math.sqrt(1 - u * u);
+        return new THREE.Vector3(
+          Math.cos(th) * rxy * r, u * r, Math.sin(th) * rxy * r
+        );
+      }
+      for (var fi = 0; fi < 18; fi++) {
+        var fstart = randSpherePoint(SPHERE_RADIUS);
+        var fend   = randSpherePoint(SPHERE_RADIUS);
+        var fmid   = fstart.clone().lerp(fend, 0.5);
+        var outward = fmid.length() > 0.001
+          ? fmid.clone().normalize()
+          : new THREE.Vector3(1, 0, 0);
+        fmid.add(outward.multiplyScalar(4 + Math.random() * 6));
+        var curve = new THREE.QuadraticBezierCurve3(fstart, fmid, fend);
+        var fpts = curve.getPoints(48);
+        var fg = new THREE.BufferGeometry().setFromPoints(fpts);
+        var fm = new THREE.LineBasicMaterial({
+          color: [0x4BB87A, 0xF2A03C, 0x7FD5A1][fi % 3],
+          transparent: true, opacity: 0.0, blending: THREE.AdditiveBlending
+        });
+        var fline = new THREE.Line(fg, fm);
+        filamentGroup.add(fline);
+        filaments.push({ line: fline, phase: Math.random() * Math.PI * 2, speed: 0.6 + Math.random() * 0.8 });
+      }
+
+      // ── Agents — small billboarded discs on the sphere ─────────────────────
+      var agentGroup = new THREE.Group();
+      scene.add(agentGroup);
+
+      var discGeoSm = new THREE.CircleGeometry(0.42, 28);
+      var outlineGeo = new THREE.RingGeometry(0.58, 0.62, 32);
+      var outlineBaseMat = new THREE.MeshBasicMaterial({
+        color: 0xEAF3EC, transparent: true, opacity: 0.14, side: THREE.DoubleSide
+      });
+
+      function makeLabelSprite(text, variant) {
+        var big = variant === "big";
+        var canvasEl = document.createElement("canvas");
+        var DPR = 2;
+        var fontPx = big ? 30 : 20;
+        var padX = big ? 18 : 12;
+        var padY = big ? 10 : 7;
+        var ctxM = canvasEl.getContext("2d");
+        ctxM.font = "600 " + fontPx + "px \"Space Grotesk\", sans-serif";
+        var metrics = ctxM.measureText(text);
+        var w = Math.ceil(metrics.width + padX * 2);
+        var h = Math.ceil(fontPx * 1.4 + padY * 2);
+        canvasEl.width = w * DPR;
+        canvasEl.height = h * DPR;
+        var ctx = canvasEl.getContext("2d");
+        ctx.scale(DPR, DPR);
+        var r = big ? 10 : 7;
+        ctx.fillStyle   = big ? "rgba(7, 16, 12, 0.92)" : "rgba(7, 16, 12, 0.72)";
+        ctx.strokeStyle = big ? "rgba(234, 243, 236, 0.35)" : "rgba(234, 243, 236, 0.12)";
+        ctx.lineWidth   = big ? 1.5 : 1;
+        ctx.beginPath();
+        ctx.moveTo(r, 0);
+        ctx.lineTo(w - r, 0);
+        ctx.quadraticCurveTo(w, 0, w, r);
+        ctx.lineTo(w, h - r);
+        ctx.quadraticCurveTo(w, h, w - r, h);
+        ctx.lineTo(r, h);
+        ctx.quadraticCurveTo(0, h, 0, h - r);
+        ctx.lineTo(0, r);
+        ctx.quadraticCurveTo(0, 0, r, 0);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle    = big ? "#EAF3EC" : "rgba(234, 243, 236, 0.88)";
+        ctx.font         = "600 " + fontPx + "px \"Space Grotesk\", sans-serif";
+        ctx.textBaseline = "middle";
+        ctx.textAlign    = "center";
+        ctx.fillText(text, w / 2, h / 2);
+        var tex = new THREE.CanvasTexture(canvasEl);
+        tex.anisotropy = 4;
+        tex.needsUpdate = true;
+        var mat = new THREE.SpriteMaterial({
+          map: tex, transparent: true, depthWrite: false, depthTest: false
+        });
+        var sprite = new THREE.Sprite(mat);
+        var scl = big ? 0.028 : 0.018;
+        sprite.scale.set(w * scl, h * scl, 1);
+        sprite.renderOrder = 999;
+        return sprite;
+      }
+
+      var GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
+      var agentEntries = [];
+      for (var i = 0; i < N; i++) {
+        var a = agents[i] || {};
+        var y = 1 - 2 * (i + 0.5) / Math.max(N, 1);
+        var rxy = Math.sqrt(Math.max(0, 1 - y * y));
+        var theta = GOLDEN_ANGLE * i;
+        var bpos = new THREE.Vector3(
+          Math.cos(theta) * rxy * SPHERE_RADIUS,
+          y * SPHERE_RADIUS,
+          Math.sin(theta) * rxy * SPHERE_RADIUS
+        );
+        var color = colorForFramework(a.framework);
+        var grp = new THREE.Group();
+        var outline = new THREE.Mesh(outlineGeo, outlineBaseMat.clone());
+        grp.add(outline);
+        var disc = new THREE.Mesh(
+          discGeoSm,
+          new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: 0.95 })
+        );
+        grp.add(disc);
+        var labelText = String(a.name || a.did || "agent").slice(0, 22);
+        var label = makeLabelSprite(labelText, "small");
+        label.position.set(0, 0.85, 0);
+        grp.add(label);
+        agentGroup.add(grp);
+        agentEntries.push({
+          data: a,
+          color: color,
+          group: grp, disc: disc, outline: outline, label: label,
+          labelText: labelText, labelVariant: "small",
+          bpos: bpos,
+          driftPhase: Math.random() * Math.PI * 2,
+          position: new THREE.Vector3(),
+          flashUntil: 0
+        });
+      }
+
+      // ── Action beams — electrical discharges between core and agent ────────
+      var actionGroup = new THREE.Group();
+      scene.add(actionGroup);
+      var activeActions = [];
+      var ACTION_COLORS = { mint: 0x4BB87A, update: 0xF2A03C, burn: 0xD9583E };
+      var nextActionAt = performance.now() + 1800 + Math.random() * 1500;
+
+      function makeLightningPath(start, end, opts) {
+        opts = opts || {};
+        var segs = opts.segs || 14;
+        var jitter = opts.jitter || 1.2;
+        var path = [start.clone()];
+        var dir = end.clone().sub(start);
+        var axis = dir.clone().normalize();
+        var up = Math.abs(axis.y) < 0.9
+          ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(1, 0, 0);
+        var perp1 = new THREE.Vector3().crossVectors(axis, up).normalize();
+        var perp2 = new THREE.Vector3().crossVectors(axis, perp1).normalize();
+        for (var s = 1; s < segs; s++) {
+          var u = s / segs;
+          var base = start.clone().lerp(end, u);
+          var amp = Math.sin(u * Math.PI) * jitter;
+          base.addScaledVector(perp1, (Math.random() - 0.5) * 2 * amp);
+          base.addScaledVector(perp2, (Math.random() - 0.5) * 2 * amp);
+          path.push(base);
+        }
+        path.push(end.clone());
+        return path;
+      }
+      function pathToSegmentPositions(pts) {
+        var arr = new Float32Array((pts.length - 1) * 6);
+        for (var p = 0; p < pts.length - 1; p++) {
+          arr[p*6+0] = pts[p].x;   arr[p*6+1] = pts[p].y;   arr[p*6+2] = pts[p].z;
+          arr[p*6+3] = pts[p+1].x; arr[p*6+4] = pts[p+1].y; arr[p*6+5] = pts[p+1].z;
+        }
+        return arr;
+      }
+      function spawnAction(agent, kind) {
+        var color = ACTION_COLORS[kind] || ACTION_COLORS.mint;
+        var plasmaSurface = agent.position.clone().normalize().multiplyScalar(5.3);
+        plasmaSurface.y = (Math.random() - 0.5) * 0.6;
+        var start = (kind === "mint") ? plasmaSurface : agent.position.clone();
+        var end   = (kind === "mint") ? agent.position.clone() : plasmaSurface;
+
+        var mainPath = makeLightningPath(start, end, { segs: 18, jitter: 1.4 });
+        var mainGeo = new THREE.BufferGeometry();
+        mainGeo.setAttribute("position", new THREE.BufferAttribute(pathToSegmentPositions(mainPath), 3));
+        var mainMat = new THREE.LineBasicMaterial({
+          color: 0xFFFFFF, transparent: true, opacity: 1,
+          blending: THREE.AdditiveBlending, depthWrite: false
+        });
+        var mainBolt = new THREE.LineSegments(mainGeo, mainMat);
+        actionGroup.add(mainBolt);
+
+        var glowMat = new THREE.LineBasicMaterial({
+          color: color, transparent: true, opacity: 0.75,
+          blending: THREE.AdditiveBlending, depthWrite: false
+        });
+        var glowGeo = mainGeo.clone();
+        var glowBolt = new THREE.LineSegments(glowGeo, glowMat);
+        actionGroup.add(glowBolt);
+
+        var branches = [];
+        var branchCount = 2 + Math.floor(Math.random() * 3);
+        for (var br = 0; br < branchCount; br++) {
+          var anchorIdx = 3 + Math.floor(Math.random() * Math.max(1, mainPath.length - 6));
+          var anchor = mainPath[anchorIdx].clone();
+          var stray = anchor.clone().add(new THREE.Vector3(
+            (Math.random() - 0.5) * 4,
+            (Math.random() - 0.5) * 4,
+            (Math.random() - 0.5) * 4
+          ));
+          var bp = makeLightningPath(anchor, stray, { segs: 6, jitter: 0.7 });
+          var bg = new THREE.BufferGeometry();
+          bg.setAttribute("position", new THREE.BufferAttribute(pathToSegmentPositions(bp), 3));
+          var bm = new THREE.LineBasicMaterial({
+            color: color, transparent: true, opacity: 0.55,
+            blending: THREE.AdditiveBlending, depthWrite: false
+          });
+          var branch = new THREE.LineSegments(bg, bm);
+          actionGroup.add(branch);
+          branches.push(branch);
+        }
+
+        var partGeo = new THREE.SphereGeometry(0.3, 12, 12);
+        var partMat = new THREE.MeshBasicMaterial({
+          color: 0xFFFFFF, blending: THREE.AdditiveBlending,
+          transparent: true, opacity: 1
+        });
+        var particle = new THREE.Mesh(partGeo, partMat);
+        particle.position.copy(start);
+        actionGroup.add(particle);
+
+        var haloMat = new THREE.MeshBasicMaterial({
+          color: color, blending: THREE.AdditiveBlending,
+          transparent: true, opacity: 0.5
+        });
+        var halo = new THREE.Mesh(new THREE.SphereGeometry(0.9, 14, 14), haloMat);
+        halo.position.copy(start);
+        actionGroup.add(halo);
+
+        var flashGeo = new THREE.RingGeometry(0.6, 0.75, 32);
+        var flashMat = new THREE.MeshBasicMaterial({
+          color: color, side: THREE.DoubleSide,
+          transparent: true, opacity: 0,
+          blending: THREE.AdditiveBlending, depthWrite: false
+        });
+        var flash = new THREE.Mesh(flashGeo, flashMat);
+        flash.position.copy(agent.position);
+        actionGroup.add(flash);
+
+        agent.flashUntil = performance.now() + 1100;
+        activeActions.push({
+          kind: kind, color: color, start: start, end: end,
+          mainBolt: mainBolt, glowBolt: glowBolt, branches: branches,
+          particle: particle, halo: halo, flash: flash,
+          path: mainPath, t: 0, duration: 850, regenAt: 0
+        });
+      }
+      function stepActions(dt) {
+        var now = performance.now();
+        for (var ai = activeActions.length - 1; ai >= 0; ai--) {
+          var act = activeActions[ai];
+          act.t += dt * 1000;
+          var u = Math.min(1, act.t / act.duration);
+          if (now >= act.regenAt) {
+            var newPath = makeLightningPath(act.start, act.end, { segs: 18, jitter: 1.4 });
+            act.path = newPath;
+            var positions = pathToSegmentPositions(newPath);
+            act.mainBolt.geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+            act.mainBolt.geometry.attributes.position.needsUpdate = true;
+            act.glowBolt.geometry.setAttribute("position", new THREE.BufferAttribute(positions.slice(), 3));
+            act.glowBolt.geometry.attributes.position.needsUpdate = true;
+            act.regenAt = now + 40 + Math.random() * 40;
+          }
+          var strobe = 0.7 + Math.random() * 0.3;
+          var envelope = u < 0.15 ? u / 0.15 : 1 - (u - 0.15) / 0.85;
+          act.mainBolt.material.opacity = strobe * envelope;
+          act.glowBolt.material.opacity = 0.75 * envelope * (0.6 + Math.random() * 0.4);
+          for (var bri = 0; bri < act.branches.length; bri++) {
+            act.branches[bri].material.opacity = 0.55 * envelope * Math.random();
+          }
+          var pi = Math.min(act.path.length - 1, Math.floor(u * act.path.length));
+          act.particle.position.copy(act.path[pi]);
+          act.halo.position.copy(act.path[pi]);
+          act.halo.scale.setScalar(1 + u * 1.6);
+          act.halo.material.opacity = 0.5 * (1 - u);
+          act.particle.material.opacity = 1 - u * 0.4;
+          act.flash.scale.setScalar(1 + u * 3);
+          act.flash.material.opacity = (1 - u) * 0.8;
+          act.flash.lookAt(camera.position);
+          if (u >= 1) {
+            actionGroup.remove(act.mainBolt); act.mainBolt.geometry.dispose(); act.mainBolt.material.dispose();
+            actionGroup.remove(act.glowBolt); act.glowBolt.geometry.dispose(); act.glowBolt.material.dispose();
+            for (var brj = 0; brj < act.branches.length; brj++) {
+              actionGroup.remove(act.branches[brj]);
+              act.branches[brj].geometry.dispose();
+              act.branches[brj].material.dispose();
             }
+            actionGroup.remove(act.particle); act.particle.geometry.dispose(); act.particle.material.dispose();
+            actionGroup.remove(act.halo);     act.halo.geometry.dispose();     act.halo.material.dispose();
+            actionGroup.remove(act.flash);    act.flash.geometry.dispose();    act.flash.material.dispose();
+            activeActions.splice(ai, 1);
           }
         }
       }
 
-      for (var bi3 = 0; bi3 < bolts.length; bi3++) {
-        var b = bolts[bi3];
-        var path = boltRefs.current[bi3];
-        if (!path) continue;
-        if (!b.active) { path.setAttribute("opacity", "0"); continue; }
-        var elapsed = now - b.startTime;
-        if (elapsed > b.duration) { b.active = false; path.setAttribute("opacity", "0"); continue; }
-        var pt = elapsed / b.duration;
-        var env = pt < 0.15 ? pt / 0.15 : (pt > 0.7 ? (1 - pt) / 0.3 : 1);
-        var a_ = projs[b.from], bb_ = projs[b.to];
-        var d = mk_bolt_d(a_, bb_, b.seed + now * 0.002);
-        path.setAttribute("d", d);
-        path.setAttribute("stroke", msgTypeColors[b.type]);
-        path.setAttribute("opacity", (env * 0.9).toFixed(2));
+      // ── Hover / click — tooltip + click-to-spark ───────────────────────────
+      var raycaster = new THREE.Raycaster();
+      var pointer = new THREE.Vector2();
+      var hoverEntry = null;
+      var selectedEntry = null;
+
+      function pick(clientX, clientY) {
+        var rect = canvas.getBoundingClientRect();
+        pointer.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+        pointer.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+        raycaster.setFromCamera(pointer, camera);
+        var meshes = [];
+        for (var m = 0; m < agentEntries.length; m++) {
+          if (agentEntries[m].group.visible) meshes.push(agentEntries[m].disc);
+        }
+        var hits = raycaster.intersectObjects(meshes, false);
+        if (hits.length === 0) return null;
+        for (var hm = 0; hm < agentEntries.length; hm++) {
+          if (agentEntries[hm].disc === hits[0].object) return agentEntries[hm];
+        }
+        return null;
       }
-      raf = requestAnimationFrame(tick);
+      function onPointerMove(ev) {
+        var rect = canvas.getBoundingClientRect();
+        var entry = pick(ev.clientX, ev.clientY);
+        hoverEntry = entry;
+        var tip = tooltipRef.current;
+        if (!tip) return;
+        if (entry) {
+          var d = entry.data || {};
+          var caps = d.capabilities || d.caps || [];
+          var capsShown = caps.slice(0, 4).map(function(c) {
+            return "<span style=\"font-family:var(--f-mono);font-size:9.5px;color:var(--ink-3);background:var(--paper-3);border:1px solid var(--rule-2);padding:2px 6px;border-radius:2px;margin-right:3px;letter-spacing:0.08em;text-transform:uppercase;\">" + escapeHtml(c) + "</span>";
+          }).join("");
+          var extra = caps.length > 4 ? "<span style=\"font-family:var(--f-mono);font-size:9.5px;color:var(--ink-4);\">+" + (caps.length - 4) + "</span>" : "";
+          tip.innerHTML =
+            "<div style=\"font-family:var(--f-display);font-weight:500;color:var(--ink);font-size:13px;margin-bottom:4px;letter-spacing:-0.005em;\">" + escapeHtml(d.name || "agent") + "</div>" +
+            "<div style=\"font-family:var(--f-mono);font-size:9.5px;color:" + toHex(entry.color) + ";letter-spacing:0.16em;text-transform:uppercase;\">" + escapeHtml(d.framework || "framework —") + " · " + caps.length + " cap" + (caps.length !== 1 ? "s" : "") + "</div>" +
+            (capsShown ? "<div style=\"margin-top:6px;display:flex;flex-wrap:wrap;gap:3px;align-items:center;\">" + capsShown + extra + "</div>" : "") +
+            (d.did ? "<div style=\"margin-top:6px;font-family:var(--f-mono);font-size:9px;color:var(--ink-4);letter-spacing:0.04em;word-break:break-all;\">" + escapeHtml(d.did) + "</div>" : "");
+          tip.style.opacity = "1";
+          var tx = ev.clientX - rect.left + 14;
+          var ty = ev.clientY - rect.top  + 14;
+          // keep tooltip in bounds
+          var maxX = rect.width  - 280;
+          var maxY = rect.height - 120;
+          tip.style.left = Math.max(6, Math.min(tx, maxX)) + "px";
+          tip.style.top  = Math.max(6, Math.min(ty, maxY)) + "px";
+          canvas.style.cursor = "pointer";
+        } else {
+          tip.style.opacity = "0";
+          canvas.style.cursor = "grab";
+        }
+      }
+      function onPointerDown() { canvas.style.cursor = "grabbing"; }
+      function onPointerUp()   { canvas.style.cursor = hoverEntry ? "pointer" : "grab"; }
+      function onClick(ev) {
+        var entry = pick(ev.clientX, ev.clientY);
+        if (entry) {
+          selectedEntry = (selectedEntry === entry) ? null : entry;
+          var kinds = ["mint", "update"];
+          spawnAction(entry, kinds[Math.floor(Math.random() * kinds.length)]);
+        } else {
+          selectedEntry = null;
+        }
+      }
+      function onPointerLeave() {
+        hoverEntry = null;
+        if (tooltipRef.current) tooltipRef.current.style.opacity = "0";
+        canvas.style.cursor = "grab";
+      }
+      canvas.addEventListener("pointermove",  onPointerMove);
+      canvas.addEventListener("pointerdown",  onPointerDown);
+      canvas.addEventListener("pointerup",    onPointerUp);
+      canvas.addEventListener("pointerleave", onPointerLeave);
+      canvas.addEventListener("click",        onClick);
+
+      // ── Resize ─────────────────────────────────────────────────────────────
+      var ro = null;
+      if (typeof ResizeObserver !== "undefined") {
+        ro = new ResizeObserver(function() {
+          var w = container.clientWidth  || 800;
+          var h = container.clientHeight || 560;
+          if (w < 1 || h < 1) return;
+          camera.aspect = w / h;
+          camera.updateProjectionMatrix();
+          renderer.setSize(w, h);
+        });
+        ro.observe(container);
+      }
+      function onWindowResize() {
+        var w = container.clientWidth  || 800;
+        var h = container.clientHeight || 560;
+        camera.aspect = w / h;
+        camera.updateProjectionMatrix();
+        renderer.setSize(w, h);
+      }
+      window.addEventListener("resize", onWindowResize);
+
+      // ── Animation loop ─────────────────────────────────────────────────────
+      var clock = new THREE.Clock();
+      function animate() {
+        if (cancelled) return;
+        var dt = clock.getDelta();
+        var t = clock.elapsedTime;
+
+        // Plasma core
+        plasmaMat.uniforms.uTime.value = t;
+        var recentAction = activeActions.length > 0;
+        var targetI = recentAction ? 1.35 : 1.0;
+        plasmaMat.uniforms.uIntensity.value +=
+          (targetI - plasmaMat.uniforms.uIntensity.value) * 0.06;
+
+        plasma.rotation.z     = t * 0.08;
+        plasmaCore.rotation.z = -t * 0.12;
+        plasmaCore.material.opacity = 0.75 + Math.sin(t * 2.2) * 0.15;
+        coilGroup.rotation.y  = t * 0.05;
+        solenoid.material.opacity = 0.38 + Math.sin(t * 3.4) * 0.12;
+        coreLight.intensity   = 2.0 + Math.sin(t * 2.8) * 0.5 + (recentAction ? 1.2 : 0);
+        vessel.rotation.y     = t * 0.03;
+        vessel.rotation.x     = t * 0.02;
+
+        for (var ff = 0; ff < filaments.length; ff++) {
+          var fil = filaments[ff];
+          fil.line.material.opacity =
+            0.08 + Math.abs(Math.sin(t * fil.speed + fil.phase)) * 0.28;
+        }
+
+        for (var rm = 0; rm < ringMeshes.length; rm++) {
+          var ring = ringMeshes[rm];
+          if (rm % 2 === 1) ring.mesh.rotation.z = (ring.base * 0.18) + t * 0.04;
+        }
+
+        // Agents: rotate sphere + wobble + billboard to camera
+        var camWorld = camera.position;
+        var sphereRot = t * 0.06;
+        var cosR = Math.cos(sphereRot);
+        var sinR = Math.sin(sphereRot);
+        var nowMs = performance.now();
+        for (var aj = 0; aj < agentEntries.length; aj++) {
+          var ae = agentEntries[aj];
+          var wobble = Math.sin(t * 0.6 + ae.driftPhase) * 0.18;
+          var bx = ae.bpos.x, by = ae.bpos.y, bz = ae.bpos.z;
+          var xr = bx * cosR - bz * sinR;
+          var zr = bx * sinR + bz * cosR;
+          ae.position.set(xr + wobble * 0.4, by + wobble, zr);
+          ae.group.position.copy(ae.position);
+          ae.group.lookAt(camWorld);
+
+          if (ae.flashUntil > nowMs) {
+            var pulse = 1 + Math.sin(nowMs * 0.02) * 0.35;
+            ae.disc.scale.setScalar(pulse);
+            ae.outline.material.opacity = 0.55;
+          } else {
+            ae.disc.scale.setScalar(1);
+            ae.outline.material.opacity =
+              (selectedEntry === ae) ? 0.6
+              : (hoverEntry === ae ? 0.35 : 0.14);
+          }
+          ae.disc.material.opacity =
+            (hoverEntry === ae || selectedEntry === ae) ? 1 : 0.95;
+
+          if (ae.label) {
+            var isBig = (selectedEntry === ae || hoverEntry === ae);
+            var wantVariant = isBig ? "big" : "small";
+            if (ae.labelVariant !== wantVariant) {
+              ae.group.remove(ae.label);
+              if (ae.label.material.map) ae.label.material.map.dispose();
+              ae.label.material.dispose();
+              ae.label = makeLabelSprite(ae.labelText, wantVariant);
+              ae.label.position.set(0, isBig ? 1.25 : 0.85, 0);
+              ae.group.add(ae.label);
+              ae.labelVariant = wantVariant;
+            }
+            var dist = ae.position.distanceTo(camWorld);
+            var fade = isBig
+              ? 1
+              : Math.max(0, Math.min(1, 1 - (dist - SPHERE_RADIUS * 0.55) / 14));
+            ae.label.material.opacity = fade;
+            ae.label.visible = fade > 0.05;
+          }
+        }
+
+        // Periodic mint beams — gives the chamber life
+        if (agentEntries.length > 0 && nowMs > nextActionAt && activeActions.length < 3) {
+          var rnd = Math.random();
+          var kind = rnd < 0.65 ? "mint" : (rnd < 0.9 ? "update" : "burn");
+          var idx = Math.floor(Math.random() * agentEntries.length);
+          spawnAction(agentEntries[idx], kind);
+          nextActionAt = nowMs + 3200 + Math.random() * 4200;
+        }
+
+        stepActions(dt);
+        controls.update();
+        renderer.render(scene, camera);
+        raf = requestAnimationFrame(animate);
+      }
+      animate();
+
+      // ── Cleanup ────────────────────────────────────────────────────────────
+      cleanupFns.push(function() {
+        if (raf) cancelAnimationFrame(raf);
+        raf = null;
+        if (ro) ro.disconnect();
+        window.removeEventListener("resize", onWindowResize);
+        canvas.removeEventListener("pointermove",  onPointerMove);
+        canvas.removeEventListener("pointerdown",  onPointerDown);
+        canvas.removeEventListener("pointerup",    onPointerUp);
+        canvas.removeEventListener("pointerleave", onPointerLeave);
+        canvas.removeEventListener("click",        onClick);
+        controls.dispose();
+
+        // Drop remaining actions
+        for (var ka = activeActions.length - 1; ka >= 0; ka--) {
+          var aa = activeActions[ka];
+          [aa.mainBolt, aa.glowBolt, aa.particle, aa.halo, aa.flash]
+            .forEach(function(m) {
+              if (!m) return;
+              if (m.geometry) m.geometry.dispose();
+              if (m.material) m.material.dispose();
+            });
+          for (var kb = 0; kb < aa.branches.length; kb++) {
+            var br = aa.branches[kb];
+            if (br.geometry) br.geometry.dispose();
+            if (br.material) br.material.dispose();
+          }
+        }
+        activeActions.length = 0;
+
+        // Dispose agent labels (CanvasTextures)
+        for (var ag = 0; ag < agentEntries.length; ag++) {
+          var ae = agentEntries[ag];
+          if (ae.label) {
+            if (ae.label.material.map) ae.label.material.map.dispose();
+            ae.label.material.dispose();
+          }
+          if (ae.disc) {
+            if (ae.disc.material) ae.disc.material.dispose();
+          }
+          if (ae.outline) {
+            if (ae.outline.material) ae.outline.material.dispose();
+          }
+        }
+
+        // Traverse and dispose everything else
+        scene.traverse(function(obj) {
+          if (obj.geometry) { try { obj.geometry.dispose(); } catch (e) {} }
+          if (obj.material) {
+            var mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+            for (var mi = 0; mi < mats.length; mi++) {
+              try { mats[mi].dispose(); } catch (e) {}
+            }
+          }
+        });
+        try { discGeoSm.dispose(); } catch (e) {}
+        try { outlineGeo.dispose(); } catch (e) {}
+        try { outlineBaseMat.dispose(); } catch (e) {}
+        for (var cd = 0; cd < coilDisposables.length; cd++) {
+          try { coilDisposables[cd].dispose(); } catch (e) {}
+        }
+
+        renderer.dispose();
+        if (canvas && canvas.parentNode) canvas.parentNode.removeChild(canvas);
+      });
     }
-    raf = requestAnimationFrame(tick);
-    return function() { cancelAnimationFrame(raf); };
+
+    boot();
+
+    return function() {
+      cancelled = true;
+      for (var i = cleanupFns.length - 1; i >= 0; i--) {
+        try { cleanupFns[i](); } catch (err) {}
+      }
+    };
   }, [N]);
 
   return e("div", { className: "fusion-chamber" },
     e("div", { className: "fusion-chamber-header" },
       e("span", { style: { display: "inline-flex", alignItems: "center", gap: 8 } },
         e("span", { className: "registry-feed-pulse" }),
-        e("span", { className: "eyebrow", style: { color: "var(--accent-2)" } }, "// FUSION CHAMBER")
+        e("span", { className: "eyebrow", style: { color: "var(--accent-2)" } }, "// FUSION CHAMBER"),
+        e("span", { className: "mono", style: { fontSize: 10, color: "var(--ink-3)", letterSpacing: "0.14em", marginLeft: 8 } }, "\u00B7 TOKAMAK CORE \u00B7 AGENT ORBIT")
       ),
-      e("span", { className: "mono", style: { fontSize: 10, color: "var(--ink-4)", letterSpacing: "0.14em" } }, "AGENT-TO-AGENT \u00B7 METADATA LABEL 674 \u00B7 " + N + " TRACKED")
-    ),
-    e("div", { className: "fusion-chamber-svg-wrap" },
-      e("svg", {
-        ref: svgRef,
-        viewBox: "0 0 600 600",
-        xmlns: "http://www.w3.org/2000/svg",
-        style: { width: "100%", height: "auto", display: "block" },
-        "aria-label": "Live agent interactions 3D fusion chamber"
-      },
-        e("defs", null,
-          e("radialGradient", { id: "fc-ambient", cx: "50%", cy: "50%", r: "55%" },
-            e("stop", { offset: "0%", stopColor: "color-mix(in oklch, var(--accent-2) 22%, var(--paper))" }),
-            e("stop", { offset: "55%", stopColor: "var(--paper)" }),
-            e("stop", { offset: "100%", stopColor: "color-mix(in oklch, var(--paper) 60%, #000)" })
-          ),
-          e("radialGradient", { id: "fc-rim", cx: "50%", cy: "50%", r: "50%" },
-            e("stop", { offset: "80%", stopColor: "var(--accent-2)", stopOpacity: "0" }),
-            e("stop", { offset: "97%", stopColor: "var(--accent-2)", stopOpacity: "0.35" }),
-            e("stop", { offset: "100%", stopColor: "var(--accent-2)", stopOpacity: "0" })
-          ),
-          e("filter", { id: "fc-glow" }, e("feGaussianBlur", { stdDeviation: "1.4" }))
-        ),
-        e("circle", { cx: 300, cy: 300, r: 230, fill: "url(#fc-ambient)" }),
-        e("circle", { cx: 300, cy: 300, r: 232, fill: "none", stroke: "color-mix(in oklch, var(--accent-2) 35%, transparent)", strokeWidth: "0.8" }),
-        e("circle", { cx: 300, cy: 300, r: 244, fill: "url(#fc-rim)" }),
-        e("ellipse", { cx: 300, cy: 300, rx: 190, ry: 42, fill: "none", stroke: "color-mix(in oklch, var(--accent-2) 14%, transparent)", strokeWidth: "0.5", strokeDasharray: "2 4" }),
-        e("ellipse", { cx: 300, cy: 300, rx: 170, ry: 78, fill: "none", stroke: "color-mix(in oklch, var(--accent-2) 10%, transparent)", strokeWidth: "0.5", strokeDasharray: "2 4", transform: "rotate(-22 300 300)" }),
-        e("ellipse", { cx: 300, cy: 300, rx: 140, ry: 120, fill: "none", stroke: "color-mix(in oklch, var(--accent-2) 8%, transparent)", strokeWidth: "0.5", strokeDasharray: "2 4", transform: "rotate(38 300 300)" }),
-        e("g", { className: "fc-bolt-core-layer" },
-          Array(4).fill(0).map(function(_, i) { return e("path", {
-            key: "bc-" + i,
-            ref: function(el) { if (el) boltRefs.current[i] = el; },
-            d: "", fill: "none", strokeWidth: "1.4", opacity: "0", strokeLinecap: "round", strokeLinejoin: "round"
-          }); })
-        ),
-        e("g", { className: "fc-labels" },
-          agents.map(function(a, i) {
-            return e("text", {
-              key: "lbl-" + i,
-              ref: function(el) { if (el) labelRefs.current[i] = el; },
-              x: 0, y: 0,
-              fontFamily: "var(--f-mono)",
-              fontSize: "8.5",
-              fill: "var(--ink-2)",
-              letterSpacing: "0.12em",
-              style: { pointerEvents: "none" }
-            }, (a.name || "AGENT").toUpperCase());
-          })
-        ),
-        e("g", { className: "fc-agents" },
-          agents.map(function(a, i) {
-            var color = frameworkColors[a.framework] || hashColor(a.name || String(i));
-            return e("g", {
-              key: "agent-" + i,
-              ref: function(el) { if (el) agentRefs.current[i] = el; }
-            },
-              e("circle", { r: 11, fill: color, opacity: "0.18", filter: "url(#fc-glow)" }),
-              e("circle", { r: 4.5, fill: "none", stroke: color, strokeWidth: "0.9" }),
-              e("circle", { r: 1.9, fill: color })
-            );
-          })
-        )
+      e("span", { className: "mono", style: { fontSize: 10, color: "var(--ink-4)", letterSpacing: "0.14em" } },
+        "AGENT-TO-AGENT \u00B7 METADATA LABEL 674 \u00B7 " + N + " TRACKED"
       )
+    ),
+    e("div", {
+      ref: containerRef,
+      className: "fusion-chamber-canvas-wrap",
+      style: {
+        position: "relative",
+        width: "100%",
+        height: "clamp(420px, 64vh, 640px)",
+        overflow: "hidden",
+        background: "radial-gradient(80% 100% at 50% 50%, color-mix(in oklch, var(--accent-2) 8%, var(--paper-2)), var(--paper))",
+        cursor: "grab",
+        touchAction: "none"
+      }
+    },
+      // Subtle status text (only visible during load or on error)
+      e("div", {
+        ref: statusRef,
+        className: "mono",
+        style: {
+          position: "absolute", left: "50%", top: "50%",
+          transform: "translate(-50%, -50%)",
+          fontSize: 10, color: "var(--ink-4)",
+          letterSpacing: "0.22em", textTransform: "uppercase",
+          pointerEvents: "none"
+        }
+      }, "Initializing 3D engine\u2026"),
+      // Hover tooltip
+      e("div", {
+        ref: tooltipRef,
+        className: "fusion-chamber-tooltip",
+        style: {
+          position: "absolute", left: 0, top: 0,
+          pointerEvents: "none", opacity: 0,
+          transition: "opacity 0.12s",
+          background: "color-mix(in oklch, var(--paper-2) 95%, transparent)",
+          backdropFilter: "blur(12px)",
+          WebkitBackdropFilter: "blur(12px)",
+          border: "1px solid var(--rule)",
+          borderRadius: 3,
+          padding: "10px 13px",
+          fontSize: 12, color: "var(--ink)",
+          maxWidth: 280, lineHeight: 1.4,
+          boxShadow: "0 20px 40px -12px rgba(0,0,0,0.7)",
+          zIndex: 10
+        }
+      })
     ),
     e("div", { className: "fusion-chamber-legend" },
       [
-        ["inquiry",     "INQ", "#6FB38A"],
-        ["response",    "RES", "#5DB3C5"],
-        ["proposal",    "PRP", "#E8801F"],
-        ["endorsement", "END", "#D9583E"],
-        ["alert",       "ALR", "#FF5436"]
+        ["mint",   "MINT",   "#4BB87A"],
+        ["update", "UPDATE", "#F2A03C"],
+        ["burn",   "BURN",   "#D9583E"],
+        ["hint",   "DRAG \u00B7 SCROLL \u00B7 CLICK AGENT", "transparent"]
       ].map(function(row) {
-        return e("span", { key: row[0], className: "fusion-legend-chip" },
-          e("span", { className: "fusion-legend-bolt", style: { background: row[2], boxShadow: "0 0 6px " + row[2] } }),
+        var isHint = row[0] === "hint";
+        return e("span", {
+          key: row[0],
+          className: "fusion-legend-chip",
+          style: isHint ? { flex: "1 1 auto", color: "var(--ink-4)", borderRight: "none" } : null
+        },
+          !isHint
+            ? e("span", {
+                className: "fusion-legend-bolt",
+                style: { background: row[2], boxShadow: "0 0 6px " + row[2] }
+              })
+            : null,
           e("span", { className: "mono" }, row[1])
         );
       })
     )
   );
 }
+
 
 function RegistrySection() {
   const e = React.createElement;
@@ -5719,7 +6509,10 @@ function RegistrySection() {
   //   Deployed: 2026-04-15  TX: 3c53fa482245a82f88a39e90191a90cce3b6f09f6e28613bc53d35a0c3ba8587
   const REGISTRY_POLICY_ID = "be1a0a2912da180757ed3cd61b56bb8eab0188c19dc3c0e3912d2c01";
   const REGISTRY_SCRIPT_ADDRESS = "addr1wxlp5z3fztdpsp6ha57dvx6khw82kqvgcxwu8s8rjykjcqghprf42";
-  const KOIOS = "https://koios.vector.mainnet.apexfusion.org";
+  // Mainnet uses the bare host (no `mainnet` segment). Testnet uses the `testnet` segment.
+  // Verified by DNS probe — there is no `koios.vector.mainnet.apexfusion.org` record.
+  const KOIOS_MAINNET = "https://koios.vector.apexfusion.org/api/v1";
+  const KOIOS_TESTNET = "https://koios.vector.testnet.apexfusion.org/api/v1";
   const CORS_PROXIES = [
     "",                                          // direct first
     "https://corsproxy.io/?url=",
@@ -5808,13 +6601,63 @@ function RegistrySection() {
     return s;
   }
 
+  // === Plutus datum decoders (ported from index_3 reference client) ==========
+  // Koios returns inline datum as `{ bytes | int | list | fields + constructor }`.
+  function decodeDatumField(v) {
+    if (v == null) return null;
+    if (typeof v !== "object") return v;
+    if ("bytes" in v)  return v.bytes;
+    if ("int" in v)    return Number(v.int);
+    if ("list" in v)   return v.list.map(decodeDatumField);
+    if ("fields" in v) return { c: v.constructor, fields: v.fields.map(decodeDatumField) };
+    return v;
+  }
+  function hexToUtf8Safe(h) {
+    if (!h || typeof h !== "string") return "";
+    try {
+      var m = h.match(/.{1,2}/g);
+      if (!m) return "";
+      var bytes = new Uint8Array(m.map(function(b) { return parseInt(b, 16); }));
+      return new TextDecoder("utf-8", { fatal: false }).decode(bytes)
+        .replace(/[\x00-\x08\x0b-\x1f\x7f]/g, "");
+    } catch (ex) { return ""; }
+  }
+  // Agent datum schema (vector-ai-agents): constructor with 7 fields —
+  //   [0] owner credential (constructor-wrapped bytes)
+  //   [1] name (utf8 bytes)
+  //   [2] description (utf8 bytes)
+  //   [3] capabilities (list of utf8 bytes)
+  //   [4] framework (utf8 bytes)
+  //   [5] endpoint (utf8 bytes)
+  //   [6] registered_at (POSIX seconds)
+  function parseAgentDatum(valueJson) {
+    var d = decodeDatumField(valueJson);
+    if (!d || !d.fields) return null;
+    var f = d.fields;
+    var owner = f[0] && f[0].fields ? f[0].fields[0] : null;
+    return {
+      owner:         owner || null,
+      name:          hexToUtf8Safe(f[1]) || "",
+      description:   hexToUtf8Safe(f[2]) || "",
+      caps:          Array.isArray(f[3]) ? f[3].map(hexToUtf8Safe).filter(Boolean) : [],
+      framework:     (hexToUtf8Safe(f[4]) || "unknown").toLowerCase(),
+      endpoint:      hexToUtf8Safe(f[5]) || "",
+      registered_at: typeof f[6] === "number" ? f[6] : null
+    };
+  }
+
   // === Fetch helper with multi-proxy fallback =================================
-  async function fetchWithFallback(path, init) {
-    const direct = KOIOS + path;
+  // Remembers which proxy last worked and tries it first next time.
+  const fetchState = { lastProxy: null };
+  async function fetchKoios(fullUrl, init) {
+    var order = CORS_PROXIES.slice();
+    if (fetchState.lastProxy != null) {
+      order = [fetchState.lastProxy].concat(order.filter(function(p) { return p !== fetchState.lastProxy; }));
+    }
     var firstErr = null;
-    for (var p = 0; p < CORS_PROXIES.length; p++) {
-      var proxy = CORS_PROXIES[p];
-      var url = proxy ? proxy + encodeURIComponent(direct) : direct;
+    for (var p = 0; p < order.length; p++) {
+      var proxy = order[p];
+      var url = proxy ? proxy + encodeURIComponent(fullUrl) : fullUrl;
       try {
         var resp = await fetch(url, init);
         if (!resp.ok) { firstErr = firstErr || new Error("HTTP " + resp.status + " via " + (proxy || "direct")); continue; }
@@ -5822,7 +6665,8 @@ function RegistrySection() {
         var data;
         try { data = JSON.parse(txt); }
         catch (pe) { firstErr = firstErr || new Error("non-JSON via " + (proxy || "direct")); continue; }
-        return { data: data, mode: proxy ? "proxy" : "direct", via: proxy ? (new URL(proxy.replace(/\?.*$/, ""))).hostname : "direct" };
+        fetchState.lastProxy = proxy;
+        return { data: data, mode: proxy ? "proxy" : "direct" };
       } catch (err) {
         if (!firstErr) firstErr = err;
       }
@@ -5830,61 +6674,123 @@ function RegistrySection() {
     throw firstErr || new Error("all endpoints failed");
   }
 
-  // === LIVE: registry agents (multi-endpoint, multi-proxy) ===================
+  async function tryTipBase(base) {
+    try {
+      var r = await fetchKoios(base + "/tip", {
+        method: "GET",
+        headers: { "Accept": "application/json" }
+      });
+      var j = r.data;
+      var tip = Array.isArray(j) ? j[0] : j;
+      return { tip: tip, mode: r.mode };
+    } catch (err) { return null; }
+  }
+
+  async function fetchAgentsFromBase(base) {
+    // Koios paginates at 1000 rows/page. Walk until a page returns empty.
+    // Hard-capped at 5 pages (5000 UTxOs) as a safety.
+    var PAGE = 1000;
+    var MAX_PAGES = 5;
+    var agents = [];
+    var mode = "direct";
+    for (var page = 0; page < MAX_PAGES; page++) {
+      var r = await fetchKoios(
+        base + "/address_utxos?limit=" + PAGE + "&offset=" + (page * PAGE),
+        {
+          method: "POST",
+          headers: { "content-type": "application/json", "Accept": "application/json" },
+          body: JSON.stringify({ _addresses: [REGISTRY_SCRIPT_ADDRESS], _extended: true })
+        }
+      );
+      mode = r.mode;
+      var utxos = r.data;
+      if (!Array.isArray(utxos)) break;
+      for (var i = 0; i < utxos.length; i++) {
+        var u = utxos[i];
+        var assets = u.asset_list || [];
+        var hasAsset = assets.some(function(x) { return x.policy_id === REGISTRY_POLICY_ID; });
+        if (!hasAsset) continue;
+        var datumValue = (u.inline_datum && u.inline_datum.value) || null;
+        if (!datumValue) continue;
+        var parsed = parseAgentDatum(datumValue);
+        if (!parsed || !parsed.name) continue;
+        var nft = assets.find(function(x) { return x.policy_id === REGISTRY_POLICY_ID; });
+        parsed.assetName = nft ? nft.asset_name : "";
+        parsed.fingerprint = nft ? nft.fingerprint : null;
+        agents.push(parsed);
+      }
+      if (utxos.length < PAGE) break;
+    }
+    return { agents: agents, mode: mode };
+  }
+
+  // === LIVE: registry tip + agents ============================================
   useEffect(function() {
     var cancelled = false;
-    async function fetchAgents() {
-      // Try three endpoints in order of richness:
-      //  1. /address_utxos at the script address (returns profile datums)
-      //  2. /policy_asset_info under the minting policy (returns mint metadata if any)
-      //  3. /policy_asset_list under the policy (bare minimum: names + supply)
-      var strategies = [
-        { path: "/api/v1/address_utxos",    body: { "_addresses": [REGISTRY_SCRIPT_ADDRESS] } },
-        { path: "/api/v1/policy_asset_info", body: { "_asset_policy": REGISTRY_POLICY_ID } },
-        { path: "/api/v1/policy_asset_list", body: { "_asset_policy": REGISTRY_POLICY_ID } }
-      ];
-      for (var s = 0; s < strategies.length; s++) {
-        try {
-          var r = await fetchWithFallback(strategies[s].path, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", "Accept": "application/json" },
-            body: JSON.stringify(strategies[s].body)
-          });
-          if (cancelled) return;
-          if (!Array.isArray(r.data)) continue;
-          var active;
-          if (strategies[s].path.indexOf("address_utxos") >= 0) {
-            // UTxOs at the script address: each UTxO that carries one of the registry NFTs is an agent
-            active = r.data.filter(function(u) {
-              if (!u || !u.asset_list) return false;
-              return u.asset_list.some(function(a) { return a.policy_id === REGISTRY_POLICY_ID; });
-            }).map(function(u) {
-              var nft = u.asset_list.find(function(a) { return a.policy_id === REGISTRY_POLICY_ID; });
-              return {
-                asset_name: nft ? nft.asset_name : "",
-                fingerprint: nft ? nft.fingerprint : null,
-                creation_time: u.block_time || null,
-                total_supply: "1",
-                inline_datum: u.inline_datum || u.datum || null,
-                _from: "address_utxos"
-              };
-            });
-          } else {
-            active = r.data.filter(function(a) { return parseInt(a.total_supply || a.quantity || "0") > 0; });
-            active.forEach(function(a) { a._from = strategies[s].path; });
-          }
-          setLiveAgents(active);
-          setAgentsStatus(r.mode === "direct" ? "live" : "live-proxy");
-          lastAgentFetchRef.current = Date.now();
-          return;
-        } catch (err) { /* try next strategy */ }
-      }
-      if (cancelled) return;
-      setAgentsStatus("unavailable");
+    var activeBase = null;
+    var activeNet = "mainnet";
+
+    async function resolveBase() {
+      // Try mainnet first, then testnet.
+      var r = await tryTipBase(KOIOS_MAINNET);
+      if (r && r.tip) return { base: KOIOS_MAINNET, net: "mainnet", tip: r.tip, mode: r.mode };
+      r = await tryTipBase(KOIOS_TESTNET);
+      if (r && r.tip) return { base: KOIOS_TESTNET, net: "testnet", tip: r.tip, mode: r.mode };
+      return null;
     }
-    fetchAgents();
-    var id = setInterval(fetchAgents, 60000);
-    return function() { cancelled = true; clearInterval(id); };
+
+    async function refreshTip() {
+      if (cancelled || !activeBase) return;
+      var r = await tryTipBase(activeBase);
+      if (cancelled) return;
+      if (r && r.tip) {
+        setTip(r.tip);
+        setTipStatus(r.mode === "direct" ? "live" : "live-proxy");
+        lastTipFetchRef.current = Date.now();
+      } else {
+        setTipStatus("error");
+      }
+    }
+
+    async function refreshAgents() {
+      if (cancelled || !activeBase) return;
+      try {
+        var result = await fetchAgentsFromBase(activeBase);
+        if (cancelled) return;
+        setLiveAgents(result.agents);
+        setAgentsStatus(result.mode === "direct" ? "live" : "live-proxy");
+        lastAgentFetchRef.current = Date.now();
+      } catch (err) {
+        if (cancelled) return;
+        console.warn("[RegistrySection] agent fetch failed:", err);
+        setAgentsStatus("unavailable");
+      }
+    }
+
+    async function init() {
+      var resolved = await resolveBase();
+      if (cancelled) return;
+      if (!resolved) {
+        setTipStatus("error");
+        setAgentsStatus("unavailable");
+        return;
+      }
+      activeBase = resolved.base;
+      activeNet = resolved.net;
+      setTip(resolved.tip);
+      setTipStatus(resolved.mode === "direct" ? "live" : "live-proxy");
+      lastTipFetchRef.current = Date.now();
+      await refreshAgents();
+    }
+
+    init();
+    var tipId   = setInterval(refreshTip,    15000);
+    var agentId = setInterval(refreshAgents, 60000);
+    return function() {
+      cancelled = true;
+      clearInterval(tipId);
+      clearInterval(agentId);
+    };
   }, []);
 
   // === Relative-time ticker ===================================================
@@ -5906,35 +6812,56 @@ function RegistrySection() {
     return function() { clearInterval(id); };
   }, []);
 
+  // === Framework name canonicalization =======================================
+  // Inline datums typically encode framework names lowercase ("langchain").
+  // Map common variants to the title-case strings used by the hub's UI.
+  var FRAMEWORK_CANON = {
+    "langchain":        "LangChain",
+    "lang-chain":       "LangChain",
+    "crewai":           "CrewAI",
+    "crew-ai":          "CrewAI",
+    "claude-desktop":   "Claude Desktop",
+    "claude_desktop":   "Claude Desktop",
+    "claudedesktop":    "Claude Desktop",
+    "claude desktop":   "Claude Desktop",
+    "openclaw":         "OpenClaw",
+    "open-claw":        "OpenClaw",
+    "autogen":          "AutoGen",
+    "llamaindex":       "LlamaIndex",
+    "haystack":         "Haystack"
+  };
+  function canonFramework(fw) {
+    if (!fw) return null;
+    var k = String(fw).trim().toLowerCase();
+    if (!k || k === "unknown") return null;
+    if (FRAMEWORK_CANON[k]) return FRAMEWORK_CANON[k];
+    // Fallback: Title-case the first letter
+    return k.charAt(0).toUpperCase() + k.slice(1);
+  }
+
   // === TRANSFORM live agent records to display shape ==========================
+  // `liveAgents` holds already-parsed datum records shaped like:
+  //   { owner, name, description, caps, framework, endpoint, registered_at,
+  //     assetName, fingerprint }
   function liveToDisplay(a, idx) {
-    var rawHex = a.asset_name || "";
-    var name = a.asset_name_ascii || hexToAscii(rawHex) || ("AGENT_" + rawHex.slice(0, 6));
-    var created = parseInt(a.creation_time || a.creation_time_epoch || "0");
-    var regDays = created > 0 ? Math.max(0, Math.floor((Date.now() / 1000 - created) / 86400)) : null;
-    // Try to extract CIP-25 metadata (label 721) if present
-    var meta = null;
-    try {
-      var m721 = a.minting_tx_metadata && a.minting_tx_metadata["721"];
-      if (m721) {
-        var policyKey = Object.keys(m721).find(function(k) { return k.toLowerCase() === REGISTRY_POLICY_ID.toLowerCase(); });
-        if (policyKey) {
-          var nameKey = Object.keys(m721[policyKey]).find(function(k) { return k === name || k === rawHex; });
-          if (nameKey) meta = m721[policyKey][nameKey];
-        }
-      }
-    } catch (ex) { meta = null; }
+    var name = a.name || ("AGENT_" + (a.assetName || "").slice(0, 6));
+    var regDays = (typeof a.registered_at === "number" && a.registered_at > 0)
+      ? Math.max(0, Math.floor((Date.now() / 1000 - a.registered_at) / 86400))
+      : null;
     return {
       did: "did:vector:agent:" + REGISTRY_POLICY_ID.slice(0, 8) + ":" + name,
       name: name,
-      framework: (meta && meta.framework) || null,
-      capabilities: (meta && Array.isArray(meta.capabilities)) ? meta.capabilities : [],
-      description: (meta && meta.description) || null,
-      reputation: (meta && typeof meta.reputation === "number") ? meta.reputation : null,
+      framework: canonFramework(a.framework),
+      capabilities: Array.isArray(a.caps) ? a.caps : [],
+      description: a.description || null,
+      endpoint: a.endpoint || null,
+      owner: a.owner || null,
+      assetName: a.assetName || null,
+      fingerprint: a.fingerprint || null,
+      reputation: null,            // not stored on-chain
       registeredDays: regDays,
       lastActiveMin: null,
-      txCount: parseInt(a.mint_cnt || "1"),
-      fingerprint: a.fingerprint || null,
+      txCount: 1,
       _src: "live"
     };
   }
@@ -6196,20 +7123,18 @@ function RegistrySection() {
           e("div", { className: "serif", style: { fontSize: 15, color: "var(--ink)", fontWeight: 500, margin: "0 0 8px" } }, "Chain tip \u2014 live"),
           e("p", { style: { fontSize: 12.5, color: "var(--ink-3)", lineHeight: 1.55, margin: 0 } },
             "Block height, slot, and epoch polled every 15s from ",
-            e("code", { className: "mono", style: { fontSize: 11, color: "var(--accent-2)" } }, "koios.vector.mainnet.apexfusion.org"),
+            e("code", { className: "mono", style: { fontSize: 11, color: "var(--accent-2)" } }, "koios.vector.apexfusion.org"),
             ". Koios public tier is CORS-restricted \u2014 the dashboard transparently retries through a public proxy when direct access is blocked."
           )
         ),
         e("div", null,
           e("div", { className: "serif", style: { fontSize: 15, color: "var(--ink)", fontWeight: 500, margin: "0 0 8px" } }, "Agent registry \u2014 live"),
           e("p", { style: { fontSize: 12.5, color: "var(--ink-3)", lineHeight: 1.55, margin: 0 } },
-            "Registered agents are queried every 60s through four proxy fallbacks against three Koios endpoints (",
+            "Registered agents are queried every 60s through four proxy fallbacks via ",
             e("code", { className: "mono", style: { fontSize: 11, color: "var(--accent-2)" } }, "address_utxos"),
-            ", ",
-            e("code", { className: "mono", style: { fontSize: 11, color: "var(--accent-2)" } }, "policy_asset_info"),
-            ", ",
-            e("code", { className: "mono", style: { fontSize: 11, color: "var(--accent-2)" } }, "policy_asset_list"),
-            "). Script address ",
+            " with ",
+            e("code", { className: "mono", style: { fontSize: 11, color: "var(--accent-2)" } }, "_extended: true"),
+            "; each agent's metadata (name, framework, capabilities, endpoint) is decoded from the UTxO's inline Plutus datum. Script address ",
             e("a", { href: ADDRESS_EXPLORER_URL, style: { color: "var(--accent-2)" } }, REGISTRY_SCRIPT_ADDRESS.slice(0, 16) + "\u2026"),
             " \u00B7 policy ",
             e("a", { href: POLICY_EXPLORER_URL, style: { color: "var(--accent-2)" } }, REGISTRY_POLICY_ID.slice(0, 10) + "\u2026"),
@@ -7561,4 +8486,3 @@ ReactDOM.createRoot(document.getElementById("root")).render(/*#__PURE__*/React.c
 
 </body>
 </html>
-
