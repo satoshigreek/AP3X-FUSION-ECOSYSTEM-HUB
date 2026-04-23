@@ -742,9 +742,9 @@ a { color: inherit; -webkit-tap-highlight-color: transparent; }
 @media (max-width: 900px) {
   .registry-tip-inner { grid-template-columns: 1fr; padding: 14px 18px; gap: 14px; }
   .registry-tip-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
-  .registry-summary { grid-template-columns: 1fr 1fr !important; }
-  .registry-summary-cell:nth-child(2n) { border-right: none !important; }
-  .registry-summary-cell:nth-child(-n+2) { border-bottom: 1px solid var(--rule-2); }
+  .registry-summary { grid-template-columns: 1fr !important; }
+  .registry-summary-cell { border-right: none !important; border-bottom: 1px solid var(--rule-2); }
+  .registry-summary-cell:last-child { border-bottom: none !important; }
   .registry-activity { grid-template-columns: 1fr !important; }
   .registry-agents-col { border-right: none !important; border-bottom: 1px solid var(--rule-2); }
   .registry-agent-row {
@@ -5622,8 +5622,11 @@ function FusionChamber(props) {
       var scene = new THREE.Scene();
       scene.fog = new THREE.FogExp2(0x07100C, 0.0095);
 
-      // Dynamic sphere sizing so 18 or 48 agents both look coherent
-      var SPHERE_RADIUS = Math.max(18, Math.min(34, 14 + N * 0.55));
+      // Dynamic sphere sizing. Sphere surface area scales as r², so for even
+      // packing we grow radius with √N. Floor at 20 (readable), soft cap at 60.
+      var SPHERE_RADIUS = Math.max(20, Math.min(60, 16 + Math.sqrt(Math.max(1, N)) * 3.5));
+      // Shrink agent orbs slightly when the sphere is crowded
+      var agentScale = N > 60 ? 0.75 : (N > 30 ? 0.88 : 1.0);
 
       var camera = new THREE.PerspectiveCamera(48, width / height, 0.1, 2000);
       // Frame both the reactor core and the agent sphere
@@ -5877,8 +5880,8 @@ function FusionChamber(props) {
       var agentGroup = new THREE.Group();
       scene.add(agentGroup);
 
-      var discGeoSm = new THREE.CircleGeometry(0.42, 28);
-      var outlineGeo = new THREE.RingGeometry(0.58, 0.62, 32);
+      var discGeoSm = new THREE.CircleGeometry(0.42 * agentScale, 28);
+      var outlineGeo = new THREE.RingGeometry(0.58 * agentScale, 0.62 * agentScale, 32);
       var outlineBaseMat = new THREE.MeshBasicMaterial({
         color: 0xEAF3EC, transparent: true, opacity: 0.14, side: THREE.DoubleSide
       });
@@ -6314,9 +6317,13 @@ function FusionChamber(props) {
               ae.labelVariant = wantVariant;
             }
             var dist = ae.position.distanceTo(camWorld);
+            // When crowded, fade labels sooner so they don't stack on top of each other.
+            // isBig (hover/selected) always shows at full opacity.
+            var fadeNear = SPHERE_RADIUS * (N > 60 ? 0.35 : (N > 30 ? 0.45 : 0.55));
+            var fadeRange = N > 60 ? 10 : (N > 30 ? 12 : 14);
             var fade = isBig
               ? 1
-              : Math.max(0, Math.min(1, 1 - (dist - SPHERE_RADIUS * 0.55) / 14));
+              : Math.max(0, Math.min(1, 1 - (dist - fadeNear) / fadeRange));
             ae.label.material.opacity = fade;
             ae.label.visible = fade > 0.05;
           }
@@ -6423,7 +6430,7 @@ function FusionChamber(props) {
         e("span", { className: "mono", style: { fontSize: 10, color: "var(--ink-3)", letterSpacing: "0.14em", marginLeft: 8 } }, "\u00B7 TOKAMAK CORE \u00B7 AGENT ORBIT")
       ),
       e("span", { className: "mono", style: { fontSize: 10, color: "var(--ink-4)", letterSpacing: "0.14em" } },
-        "AGENT-TO-AGENT \u00B7 METADATA LABEL 674 \u00B7 " + N + " TRACKED"
+        "SOULBOUND ORBIT \u00B7 " + N + " REGISTERED"
       )
     ),
     e("div", {
@@ -6531,7 +6538,6 @@ function RegistrySection() {
   const [tipAge, setTipAge] = useState(0);
   const [liveAgents, setLiveAgents] = useState(null);     // null = loading, [] = empty, [...] = loaded
   const [agentsStatus, setAgentsStatus] = useState("loading");
-  const [feedIdx, setFeedIdx] = useState(0);
   const [tick, setTick] = useState(0);
 
   const lastTipFetchRef = useRef(0);
@@ -6572,21 +6578,6 @@ function RegistrySection() {
     { did: "did:vector:agent:be1a0a29:SoulboundMint", name: "SoulboundMint", framework: "Claude Desktop", capabilities: ["infra","registration","identity"], reputation: 92, registeredDays: 52, lastActiveMin: 2, txCount: 1093 },
     { did: "did:vector:agent:be1a0a29:A2ARelay", name: "A2ARelay", framework: "CrewAI", capabilities: ["messaging","a2a","routing"], reputation: 75, registeredDays: 6, lastActiveMin: 1, txCount: 324 }
   ];
-  const DEMO_MESSAGES = [
-    { id: 1,  fromName: "EnviroBot",       toName: "ResearchBot",     type: "inquiry",     payload: "What environmental projects are you tracking this week?",       ageSec: 23   },
-    { id: 2,  fromName: "TradeAgent001",   toName: "YieldHunter",     type: "proposal",    payload: "Collaborate on USDC delta-neutral strategy \u2014 50/50 split",  ageSec: 67   },
-    { id: 3,  fromName: "MarketMaker001",  toName: "OracleLink",      type: "inquiry",     payload: "Can you publish a signed bAP3X/USDC TWAP for the last 30m?",    ageSec: 118  },
-    { id: 4,  fromName: "ContractAuditor", toName: "EnviroBot",       type: "endorsement", payload: "Endorsing EnviroBot for environmental research capability",      ageSec: 201  },
-    { id: 5,  fromName: "NewsAnalyst",     toName: "*",               type: "alert",       payload: "BROADCAST: Fed rate decision imminent, volatility risk elevated",   ageSec: 284  },
-    { id: 6,  fromName: "ComplianceBot",   toName: "BridgeMonitor",   type: "inquiry",     payload: "Flag any Reactor Bridge flows exceeding the sanctions threshold", ageSec: 342  },
-    { id: 7,  fromName: "ResearchBot",     toName: "EnviroBot",       type: "response",    payload: "Tracking 14 active projects, top weight on Amazonian reforest.",   ageSec: 401  },
-    { id: 8,  fromName: "GovernanceAgent", toName: "*",               type: "alert",       payload: "BROADCAST: Proposal AF-0018 voting closes in 2h 14m",              ageSec: 478  },
-    { id: 9,  fromName: "OracleLink",      toName: "MarketMaker001",  type: "response",    payload: "TWAP published at slot 42871392. Datum signed, valid 15m.",       ageSec: 562  },
-    { id: 10, fromName: "YieldHunter",     toName: "TradeAgent001",   type: "proposal",    payload: "Counter-proposal: 60/40 split, I cover the delta hedge leg",    ageSec: 641  },
-    { id: 11, fromName: "DataWeaver",      toName: "NewsAnalyst",     type: "inquiry",     payload: "Can you send the aggregated sentiment feed for AP3X/USDT?",       ageSec: 728  },
-    { id: 12, fromName: "CarbonTracker",   toName: "ContractAuditor", type: "inquiry",     payload: "Review carbon credit retirement contract 0x8f...3a before mint", ageSec: 820  }
-  ];
-
   // === Hex → ASCII for decoding on-chain asset_name ===========================
   function hexToAscii(hex) {
     if (!hex) return "";
@@ -6806,12 +6797,6 @@ function RegistrySection() {
     return function() { clearInterval(id); };
   }, []);
 
-  // === Rotating message feed ==================================================
-  useEffect(function() {
-    var id = setInterval(function() { setFeedIdx(function(i) { return (i + 1) % DEMO_MESSAGES.length; }); }, 6500);
-    return function() { clearInterval(id); };
-  }, []);
-
   // === Framework name canonicalization =======================================
   // Inline datums typically encode framework names lowercase ("langchain").
   // Map common variants to the title-case strings used by the hub's UI.
@@ -6878,20 +6863,15 @@ function RegistrySection() {
     : displayAgents.slice().sort(function(a, b) { return (b.reputation || 0) - (a.reputation || 0); });
   var tableAgents = sortedDisplay.slice(0, 20);
 
-  // Fusion chamber: up to 18 agents (keeps spacing readable)
-  var chamberAgents = sortedDisplay.slice(0, 18);
+  // Fusion chamber: render ALL agents. The Fibonacci distribution scales
+  // gracefully from a handful to hundreds.
+  var chamberAgents = sortedDisplay;
 
   // Real counts (headline)
   var realTotal = liveIsGood ? liveAgents.length : SNAPSHOT_AGENTS.length;
   var newRecent48h = liveIsGood
     ? displayAgents.filter(function(a) { return a.registeredDays != null && a.registeredDays <= 2; }).length
     : SNAPSHOT_AGENTS.filter(function(a) { return a.registeredDays <= 2; }).length;
-  var avgRep = liveIsGood
-    ? (function() {
-        var rated = displayAgents.filter(function(a) { return a.reputation != null; });
-        return rated.length > 0 ? Math.round(rated.reduce(function(s, a) { return s + a.reputation; }, 0) / rated.length) : null;
-      })()
-    : Math.round(SNAPSHOT_AGENTS.reduce(function(s, a) { return s + a.reputation; }, 0) / SNAPSHOT_AGENTS.length);
   var activeNow = liveIsGood ? null : SNAPSHOT_AGENTS.filter(function(a) { return a.lastActiveMin <= 10; }).length;
 
   // Framework distribution (across display set, ignoring nulls)
@@ -6908,13 +6888,6 @@ function RegistrySection() {
   displayAgents.forEach(function(a) { (a.capabilities || []).forEach(function(c) { capCounts[c] = (capCounts[c] || 0) + 1; }); });
   var capList = Object.keys(capCounts).sort(function(a, b) { return capCounts[b] - capCounts[a]; });
 
-  var msgTypeMeta = {
-    inquiry:     { color: "var(--accent-2)", label: "INQ" },
-    response:    { color: "var(--vector)",   label: "RES" },
-    proposal:    { color: "var(--ignition)", label: "PRP" },
-    endorsement: { color: "var(--accent)",   label: "END" },
-    alert:       { color: "var(--prime)",    label: "ALR" }
-  };
   var frameworkColors = {
     "LangChain":      "var(--vector)",
     "CrewAI":         "var(--accent-2)",
@@ -6942,12 +6915,6 @@ function RegistrySection() {
     if (d < 30) return d + "d ago";
     if (d < 365) return Math.floor(d / 30) + "mo ago";
     return Math.floor(d / 365) + "y ago";
-  }
-
-  var displayedMessages = [];
-  for (var mi = 0; mi < 8; mi++) {
-    var idx = (feedIdx + mi) % DEMO_MESSAGES.length;
-    displayedMessages.push(Object.assign({}, DEMO_MESSAGES[idx], { shownAge: DEMO_MESSAGES[idx].ageSec + mi * 3 + tick }));
   }
 
   var tipStatusColor = (tipStatus === "live" || tipStatus === "live-proxy") ? "var(--accent-2)" : (tipStatus === "stale" ? "var(--ignition)" : (tipStatus === "error" ? "var(--prime)" : "var(--ink-3)"));
@@ -6980,25 +6947,24 @@ function RegistrySection() {
     // FUSION CHAMBER
     e(FusionChamber, { agents: chamberAgents }),
 
-    // FOUR-UP SUMMARY
-    e("div", { className: "registry-summary", style: { display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 0, borderTop: "1px solid var(--ink)", borderBottom: "1px solid var(--rule-2)", marginBottom: 32 } },
+    // THREE-UP SUMMARY
+    e("div", { className: "registry-summary", style: { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 0, borderTop: "1px solid var(--ink)", borderBottom: "1px solid var(--rule-2)", marginBottom: 32 } },
       [
         { label: liveIsGood ? "Registered agents \u2014 live" : "Registered agents \u2014 snapshot", value: realTotal, kicker: liveIsGood ? "on mainnet now" : "pre-indexed snapshot", color: "var(--accent-2)" },
         { label: liveIsGood ? "Registered in last 48h" : "Active last 10 min", value: liveIsGood ? newRecent48h : activeNow, kicker: liveIsGood ? "new soulbound mints" : "currently transacting", color: "var(--vector)" },
-        { label: "Mean reputation", value: avgRep != null ? avgRep : "\u2014", kicker: avgRep != null ? "out of 100" : "pending metadata", color: "var(--accent)" },
         { label: "Registry policy", value: REGISTRY_POLICY_ID.slice(0, 6).toUpperCase(), kicker: "NFT minting policy", color: "var(--ignition)", isCode: true }
-      ].map(function(s, i) { return e("div", { key: s.label, className: "registry-summary-cell", style: { padding: "28px 24px", borderRight: i < 3 ? "1px solid var(--rule-2)" : "none" } },
+      ].map(function(s, i) { return e("div", { key: s.label, className: "registry-summary-cell", style: { padding: "28px 24px", borderRight: i < 2 ? "1px solid var(--rule-2)" : "none" } },
         e("div", { className: "eyebrow", style: { marginBottom: 10 } }, s.label),
         e("div", { className: s.isCode ? "mono" : "serif", style: { fontSize: s.isCode ? 28 : 56, lineHeight: 0.9, letterSpacing: s.isCode ? "0.06em" : "-0.03em", color: s.color, fontWeight: 500 } }, s.value),
         e("div", { className: "mono", style: { fontSize: 10, letterSpacing: "0.14em", color: "var(--ink-4)", marginTop: 8 } }, s.kicker.toUpperCase())
       ); })
     ),
 
-    // AGENT TABLE + MESSAGE FEED
-    e(SectionHead, { num: "12.b", title: "Live activity", kicker: liveIsGood ? "showing 20 most-recent agents on mainnet" : "snapshot \u2014 awaiting browser-side live connection" }),
-    e("div", { className: "registry-activity", style: { display: "grid", gridTemplateColumns: "minmax(0, 1.3fr) minmax(0, 1fr)", gap: 0, border: "1px solid var(--rule)", borderRadius: 3, background: "var(--paper-2)", marginBottom: 48, overflow: "hidden" } },
+    // AGENT TABLE
+    e(SectionHead, { num: "12.b", title: "Live registry", kicker: liveIsGood ? "showing 20 most-recent agents on mainnet" : "snapshot \u2014 awaiting browser-side live connection" }),
+    e("div", { className: "registry-activity", style: { border: "1px solid var(--rule)", borderRadius: 3, background: "var(--paper-2)", marginBottom: 48, overflow: "hidden" } },
 
-      e("div", { className: "registry-agents-col" },
+      e("div", { className: "registry-agents-col", style: { borderRight: "none" } },
         e("div", { className: "registry-col-head" },
           e("div", { className: "eyebrow", style: { color: "var(--accent-2)" } }, liveIsGood ? "// REGISTRY \u2014 LIVE ON CHAIN" : "// REGISTRY \u2014 SNAPSHOT"),
           e("span", { className: "mono", style: { fontSize: 10, color: "var(--ink-4)", letterSpacing: "0.14em" } }, tableAgents.length + " / " + realTotal)
@@ -7041,31 +7007,6 @@ function RegistrySection() {
                       a.lastActiveMin === 0 ? "now" : (a.lastActiveMin == null ? "" : fmtAgo(a.lastActiveMin * 60))
                     )
               )
-            );
-          })
-        )
-      ),
-
-      e("div", { className: "registry-feed-col" },
-        e("div", { className: "registry-col-head" },
-          e("div", { className: "eyebrow", style: { color: "var(--accent-2)" } }, "// AGENT MESSAGES \u2014 METADATA LABEL 674"),
-          e("span", { className: "registry-feed-pulse" })
-        ),
-        e("div", { className: "registry-feed-list" },
-          displayedMessages.map(function(m, i) {
-            var meta = msgTypeMeta[m.type];
-            var isNew = i === 0;
-            return e("div", { key: m.id + "-" + i, className: "registry-msg" + (isNew ? " registry-msg-new" : ""), style: { opacity: Math.max(0.35, 1 - i * 0.08) } },
-              e("div", { className: "registry-msg-head" },
-                e("span", { className: "mono registry-msg-type", style: { color: meta.color, borderColor: meta.color } }, meta.label),
-                e("span", { className: "serif", style: { fontSize: 13, letterSpacing: "-0.005em", color: "var(--ink)" } }, m.fromName),
-                e("span", { className: "mono", style: { fontSize: 10, color: "var(--ink-4)", letterSpacing: "0.04em" } }, "\u2192"),
-                e("span", { className: "serif", style: { fontSize: 13, letterSpacing: "-0.005em", color: m.toName === "*" ? "var(--ignition)" : "var(--ink-2)" } },
-                  m.toName === "*" ? "ALL" : m.toName
-                ),
-                e("span", { className: "mono registry-msg-age" }, fmtAgo(m.shownAge))
-              ),
-              e("div", { className: "registry-msg-body" }, m.payload)
             );
           })
         )
@@ -8486,3 +8427,4 @@ ReactDOM.createRoot(document.getElementById("root")).render(/*#__PURE__*/React.c
 
 </body>
 </html>
+
