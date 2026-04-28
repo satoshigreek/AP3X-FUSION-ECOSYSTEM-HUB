@@ -214,6 +214,24 @@ a { color: inherit; -webkit-tap-highlight-color: transparent; }
 .nav-item.active .num { color: var(--accent); }
 .nav-item.active::before { content: ''; position: absolute; left: -24px; top: 50%; width: 16px; height: 1px; background: var(--accent); box-shadow: 0 0 8px var(--accent); transform: translateY(-50%); }
 
+/* nav groups (R&D meta-category) */
+.nav-group { color: var(--ink-2); padding-right: 18px; }
+.nav-group .label { line-height: 1.2; }
+.nav-group .chev { position: absolute; right: 0; top: 11px; font-family: var(--f-mono); font-size: 13px; line-height: 1; color: var(--ink-4); transition: color .2s, transform .2s; }
+.nav-group:hover .chev { color: var(--accent); }
+.nav-group.has-active-child .label { color: var(--ink); }
+.nav-group.has-active-child .num { color: var(--accent); }
+.nav-group.has-active-child .chev,
+.nav-group.expanded .chev { color: var(--accent); }
+.nav-group.has-active-child::before { content: ''; position: absolute; left: -24px; top: 50%; width: 10px; height: 1px; background: var(--accent); opacity: 0.5; transform: translateY(-50%); }
+
+.nav-sub { padding: 7px 0 7px 22px; }
+.nav-sub .num { font-style: italic; opacity: 0.7; text-align: center; }
+.nav-sub .label { font-size: 12px; letter-spacing: 0.04em; }
+.nav-sub:hover { padding-left: 26px; }
+.nav-sub.active { padding-left: 26px; }
+.nav-sub.active::before { left: -20px; width: 12px; }
+
 .nav-foot { font-family: var(--f-mono); font-size: 9.5px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ink-4); line-height: 1.8; }
 .nav-foot a { text-decoration: none; color: inherit; }
 .nav-foot a:hover { color: var(--accent); }
@@ -1737,14 +1755,18 @@ const SECTIONS = [{
   id: "network",
   label: "Network"
 }, {
-  id: "factory",
-  label: "Live Agent Factory"
-}, {
-  id: "tachys",
-  label: "Tachýs"
-}, {
-  id: "vectorEconomy",
-  label: "Vector Economy"
+  id: "rd",
+  label: "Research & Development",
+  children: [{
+    id: "factory",
+    label: "Live Agent Factory"
+  }, {
+    id: "tachys",
+    label: "Tachýs"
+  }, {
+    id: "vectorEconomy",
+    label: "Vector Economy"
+  }]
 }, {
   id: "ignition",
   label: "Apex Ignition"
@@ -8193,6 +8215,22 @@ function App() {
     }
   });
   const [navOpen, setNavOpen] = useState(false);
+  const [expandedGroups, setExpandedGroups] = useState(() => {
+    let activeId;
+    try { activeId = localStorage.getItem("apex_section") || "overview"; } catch (e) { activeId = "overview"; }
+    const initial = new Set();
+    SECTIONS.forEach(s => {
+      if (s.children && s.children.some(c => c.id === activeId)) initial.add(s.id);
+    });
+    return initial;
+  });
+  const toggleGroup = (gid) => {
+    setExpandedGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(gid)) next.delete(gid); else next.add(gid);
+      return next;
+    });
+  };
   const [time, setTime] = useState(new Date());
   const [theme, setTheme] = useState(() => {
     try {
@@ -8214,6 +8252,18 @@ function App() {
     window.scrollTo({
       top: 0,
       behavior: "smooth"
+    });
+  }, [active]);
+  useEffect(() => {
+    SECTIONS.forEach(s => {
+      if (s.children && s.children.some(c => c.id === active)) {
+        setExpandedGroups(prev => {
+          if (prev.has(s.id)) return prev;
+          const next = new Set(prev);
+          next.add(s.id);
+          return next;
+        });
+      }
     });
   }, [active]);
   useEffect(() => {
@@ -8306,18 +8356,50 @@ function App() {
     className: "brand-status"
   }, "MAINNET \xB7 ALL CHAINS"), /*#__PURE__*/React.createElement("nav", {
     className: "nav-list"
-  }, SECTIONS.map((s, i) => /*#__PURE__*/React.createElement("button", {
-    key: s.id,
-    className: "nav-item" + (active === s.id ? " active" : ""),
-    onClick: () => {
-      setActive(s.id);
-      setNavOpen(false);
+  }, SECTIONS.flatMap((s, i) => {
+    if (s.children) {
+      const isExpanded = expandedGroups.has(s.id);
+      const hasActiveChild = s.children.some(c => c.id === active);
+      const groupBtn = /*#__PURE__*/React.createElement("button", {
+        key: s.id,
+        className: "nav-item nav-group" + (hasActiveChild ? " has-active-child" : "") + (isExpanded ? " expanded" : ""),
+        onClick: () => toggleGroup(s.id),
+        "aria-expanded": isExpanded
+      }, /*#__PURE__*/React.createElement("span", {
+        className: "num"
+      }, String(i).padStart(2, "0")), /*#__PURE__*/React.createElement("span", {
+        className: "label"
+      }, s.label), /*#__PURE__*/React.createElement("span", {
+        className: "chev",
+        "aria-hidden": "true"
+      }, isExpanded ? "−" : "+"));
+      const childBtns = isExpanded ? s.children.map((c, ci) => /*#__PURE__*/React.createElement("button", {
+        key: c.id,
+        className: "nav-item nav-sub" + (active === c.id ? " active" : ""),
+        onClick: () => {
+          setActive(c.id);
+          setNavOpen(false);
+        }
+      }, /*#__PURE__*/React.createElement("span", {
+        className: "num"
+      }, String.fromCharCode(97 + ci)), /*#__PURE__*/React.createElement("span", {
+        className: "label"
+      }, c.label))) : [];
+      return [groupBtn].concat(childBtns);
     }
-  }, /*#__PURE__*/React.createElement("span", {
-    className: "num"
-  }, String(i).padStart(2, "0")), /*#__PURE__*/React.createElement("span", {
-    className: "label"
-  }, s.label)))), /*#__PURE__*/React.createElement("div", {
+    return [/*#__PURE__*/React.createElement("button", {
+      key: s.id,
+      className: "nav-item" + (active === s.id ? " active" : ""),
+      onClick: () => {
+        setActive(s.id);
+        setNavOpen(false);
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "num"
+    }, String(i).padStart(2, "0")), /*#__PURE__*/React.createElement("span", {
+      className: "label"
+    }, s.label))];
+  })), /*#__PURE__*/React.createElement("div", {
     className: "nav-foot",
     style: {
       marginTop: 24,
