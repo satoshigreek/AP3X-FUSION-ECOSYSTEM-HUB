@@ -1337,13 +1337,43 @@ h1.display, h2.display, .display {
       if (splash) splash.classList.add("hidden");
     }
 
+    // Returns true if the error originated from a browser extension or other
+    // source we shouldn't treat as a page-rendering failure.
+    function isExtensionOrThirdPartyNoise(filename, message) {
+      var f = String(filename || "");
+      if (f.indexOf("chrome-extension://") === 0) return true;
+      if (f.indexOf("moz-extension://") === 0) return true;
+      if (f.indexOf("safari-extension://") === 0) return true;
+      if (f.indexOf("safari-web-extension://") === 0) return true;
+      if (f.indexOf("edge-extension://") === 0) return true;
+      var m = String(message || "");
+      // Multiple Cardano/EVM wallet extensions racing to inject window.cardano,
+      // window.ethereum, etc. throw this on read-only window properties.
+      if (/Cannot (assign to|redefine|set property) .*read[\- ]only/i.test(m)) return true;
+      if (/Cannot (assign to|redefine|set property) ['"]?(cardano|ethereum|solana|tron|ton|aptos)['"]? of/i.test(m)) return true;
+      return false;
+    }
+
+    function appHasMounted() {
+      var root = document.getElementById("root");
+      return !!(root && root.children.length > 0);
+    }
+
     window.addEventListener("error", function(e) {
-      // Ignore errors that don't stop rendering (font loading, etc)
-      if (e && e.message) showError(e.message + (e.filename ? "\n\n" + e.filename + ":" + e.lineno : ""));
+      if (!e || !e.message) return;
+      // Ignore browser extension noise — wallet extensions (Lace, Eternl, Nami,
+      // MetaMask, etc.) frequently throw on this page without affecting render.
+      if (isExtensionOrThirdPartyNoise(e.filename, e.message)) return;
+      // If React already mounted, the page is rendering fine — don't hijack it.
+      if (appHasMounted()) return;
+      showError(e.message + (e.filename ? "\n\n" + e.filename + ":" + e.lineno : ""));
     });
     window.addEventListener("unhandledrejection", function(e) {
       var r = e && e.reason;
-      showError((r && (r.stack || r.message)) || String(r));
+      var stack = (r && (r.stack || r.message)) || String(r);
+      if (isExtensionOrThirdPartyNoise(stack, (r && r.message) || stack)) return;
+      if (appHasMounted()) return;
+      showError(stack);
     });
 
     // Remove splash as soon as React mounts (detect children appearing in #root)
