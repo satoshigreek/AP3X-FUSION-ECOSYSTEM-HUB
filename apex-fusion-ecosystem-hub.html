@@ -6,6 +6,37 @@
 <meta name="theme-color" content="#07100C" />
 <title>AP3X FUSION — Ecosystem</title>
 <meta name="description" content="Apex Fusion ecosystem hub — a tri-chain (Prime, Vector, Nexus) for the next era of Cardano. Stake AP3X, bridge across chains, build on EVM or UTXO." />
+
+<!-- Canonical + crawler directives -->
+<link rel="canonical" href="https://apexfusion.org/" />
+<meta name="robots" content="index, follow, max-image-preview:large" />
+
+<!-- Favicon (inline SVG: A on emerald-tinted dark square) -->
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='10' fill='%2307100C'/%3E%3Cpath d='M14 50 L32 14 L50 50 M21 38 L43 38' stroke='%234BB87A' stroke-width='5' stroke-linecap='round' stroke-linejoin='round' fill='none'/%3E%3C/svg%3E" />
+<link rel="apple-touch-icon" href="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='10' fill='%2307100C'/%3E%3Cpath d='M14 50 L32 14 L50 50 M21 38 L43 38' stroke='%234BB87A' stroke-width='5' stroke-linecap='round' stroke-linejoin='round' fill='none'/%3E%3C/svg%3E" />
+
+<!-- Open Graph -->
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="AP3X Fusion" />
+<meta property="og:title" content="AP3X FUSION — Ecosystem Hub" />
+<meta property="og:description" content="Apex Fusion ecosystem hub — a tri-chain (Prime, Vector, Nexus) for the next era of Cardano. Stake AP3X, bridge across chains, build on EVM or UTXO." />
+<meta property="og:url" content="https://apexfusion.org/" />
+<meta property="og:locale" content="en_US" />
+<!-- TODO: upload a 1200x630 PNG to apexfusion.org/og-image.png and re-add:
+     <meta property="og:image" content="https://apexfusion.org/og-image.png" />
+     <meta property="og:image:alt" content="AP3X Fusion — tri-chain ecosystem (Prime · Vector · Nexus)" />
+     <meta property="og:image:width" content="1200" />
+     <meta property="og:image:height" content="630" />
+     <meta property="og:image:type" content="image/png" />
+     Without an image, Twitter falls back to the smaller `summary` card. -->
+
+<!-- Twitter / X card -->
+<meta name="twitter:card" content="summary" />
+<meta name="twitter:site" content="@apexfusion" />
+<meta name="twitter:title" content="AP3X FUSION — Ecosystem Hub" />
+<meta name="twitter:description" content="Tri-chain (Prime · Vector · Nexus) for the next era of Cardano. Stake AP3X, bridge across chains, build on EVM or UTXO." />
+<!-- TODO: when og:image is uploaded, switch twitter:card back to summary_large_image and add twitter:image. -->
+
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
@@ -187,6 +218,39 @@ a { color: inherit; -webkit-tap-highlight-color: transparent; }
 
 *:focus-visible { outline: 1px solid var(--ink); outline-offset: 3px; }
 
+/* ========== SKIP-TO-CONTENT (a11y) ========== */
+.skip-link {
+  position: absolute;
+  left: 8px; top: 8px;
+  z-index: 10000;
+  background: var(--paper);
+  color: var(--ink);
+  border: 1px solid var(--accent);
+  padding: 10px 16px;
+  font-family: var(--f-mono);
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  text-decoration: none;
+  border-radius: 2px;
+  transform: translateY(-200%);
+  transition: transform .2s ease;
+}
+.skip-link:focus {
+  transform: translateY(0);
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ========== LIGHT-THEME CONTRAST (top-meta + nav-foot) ========== */
+html[data-theme="light"] .top-meta {
+  background: color-mix(in oklch, var(--paper) 92%, transparent);
+  color: var(--ink-2);
+}
+html[data-theme="light"] .top-meta .coord span > span:first-child {
+  color: var(--ink-2) !important;
+}
+
 .app { position: relative; z-index: 2; min-height: 100vh; display: grid; grid-template-columns: 240px 1fr; }
 .nav {
   position: sticky; top: 0; height: 100vh;
@@ -236,8 +300,9 @@ a { color: inherit; -webkit-tap-highlight-color: transparent; }
 .nav-sub.active { padding-left: 26px; }
 .nav-sub.active::before { left: -20px; width: 12px; }
 
-.nav-foot { font-family: var(--f-mono); font-size: 9.5px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ink-4); line-height: 1.8; }
-.nav-foot a { text-decoration: none; color: inherit; }
+/* nav-foot uses --ink-3 (≈5.6:1 vs --paper) for WCAG AA on 9.5px text. */
+.nav-foot { font-family: var(--f-mono); font-size: 9.5px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ink-3); line-height: 1.8; }
+.nav-foot a { text-decoration: none; color: var(--ink-2); }
 .nav-foot a:hover { color: var(--accent); }
 
 .main { position: relative; min-width: 0; }
@@ -372,6 +437,52 @@ a { color: inherit; -webkit-tap-highlight-color: transparent; }
   .main-pad .serif[style*="font-size: 64px"] { font-size: 42px !important; }
   .main-pad .serif[style*="font-size: 48px"] { font-size: 36px !important; }
   .main-pad .serif[style*="font-size: 56px"] { font-size: 38px !important; }
+}
+
+/* ========== ENTERPRISE COVERAGE MATRIX — narrow-viewport scroll (fix v2 M5) ========== */
+@media (max-width: 720px) {
+  .enterprise-section .ent-matrix {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    padding: 28px 22px 22px;
+  }
+  .enterprise-section .ent-matrix-grid {
+    min-width: 460px;
+  }
+}
+
+/* ========== NETWORK PANEL — RESPONSIVE STACK (fix audit H1) ========== */
+@media (max-width: 900px) {
+  .network-globe-wrap {
+    grid-template-columns: 1fr !important;
+  }
+  .network-globe-col {
+    border-right: none !important;
+    border-bottom: 1px solid var(--rule-2);
+    padding: 16px !important;
+  }
+  .network-stats-col {
+    padding: 24px 18px !important;
+  }
+  /* Header row: panel label + pause button — let them wrap cleanly */
+  .network-globe-col > div:first-child {
+    flex-direction: column;
+    align-items: flex-start !important;
+    gap: 10px !important;
+  }
+}
+@media (max-width: 480px) {
+  .network-globe-col { padding: 12px !important; }
+  .network-globe-col svg { max-height: 360px !important; }
+  .network-stats-col { padding: 20px 14px !important; gap: 16px !important; }
+  /* Big "333" stat scales down */
+  .network-stats-col .serif[style*="font-size: 76px"] { font-size: 56px !important; }
+  /* Source/dashboard pair: stack vertically rather than 2-col on tiny screens */
+  .network-stats-col > div:first-child > div:last-child {
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+  }
 }
 
 /* ========== TACHÝS SECTION — MOBILE LAYOUT ========== */
@@ -1300,6 +1411,18 @@ h1.display, h2.display, .display {
   }
 </script>
 
+<!-- noscript fallback — covers JS-disabled visitors so they don't see an indefinite splash spinner -->
+<noscript>
+  <div style="position:fixed;inset:0;background:#07100C;color:#EAF3EC;font-family:'Space Grotesk',ui-sans-serif,system-ui,sans-serif;display:flex;align-items:center;justify-content:center;padding:24px;z-index:99999;">
+    <div style="max-width:520px;text-align:left;border:1px solid #4BB87A;padding:28px 32px;border-radius:4px;">
+      <div style="font-family:'JetBrains Mono',ui-monospace,monospace;font-size:10.5px;letter-spacing:0.22em;text-transform:uppercase;color:#7FD5A1;margin-bottom:14px;">// JavaScript required</div>
+      <h1 style="margin:0 0 14px;font-size:24px;letter-spacing:-0.02em;">AP3X Fusion — Ecosystem hub</h1>
+      <p style="margin:0 0 20px;line-height:1.55;color:#B8CDBF;">This site is a single-page React app. Enable JavaScript to view the ecosystem map, the live globe, the staking calculator, and the dataroom.</p>
+      <p style="margin:0;font-size:13px;line-height:1.55;color:#B8CDBF;">Prefer no-JS reading? <a href="https://apexfusion.org/" style="color:#4BB87A;">apexfusion.org</a> · <a href="https://foundation.apexfusion.org/" style="color:#4BB87A;">foundation.apexfusion.org</a> · <a href="https://developers.apexfusion.org/" style="color:#4BB87A;">developers.apexfusion.org</a></p>
+    </div>
+  </div>
+</noscript>
+
 <!-- Splash renders immediately while React + Babel load from CDN -->
 <div id="splash">
   <div style="text-align:center">
@@ -1309,8 +1432,8 @@ h1.display, h2.display, .display {
   </div>
 </div>
 
-<!-- Error banner — only visible if something breaks -->
-<div id="error-banner">
+<!-- Error banner — only visible if something breaks. aria-hidden until activated, then role=alert announces it. -->
+<div id="error-banner" role="alert" aria-hidden="true" aria-live="polite">
   <div class="inner">
     <h2>Still loading…</h2>
     <p>If this message stays, the page couldn't reach the React CDN (unpkg.com). Refresh, try a different network, or check DevTools → Network tab.</p>
@@ -1333,7 +1456,10 @@ h1.display, h2.display, .display {
 
     function showError(text) {
       if (msg) msg.textContent = String(text || "").slice(0, 2000);
-      if (banner) banner.classList.add("active");
+      if (banner) {
+        banner.classList.add("active");
+        banner.setAttribute("aria-hidden", "false");
+      }
       if (splash) splash.classList.add("hidden");
     }
 
@@ -1896,14 +2022,14 @@ const DAPPS = [{
   desc: "Cardano-native DEX where cAP3X trades against ADA and other tokens — swap, provide liquidity, earn yield",
   chains: ["cardano"],
   category: "DEX",
-  url: "https://app.vyfi.io/",
+  url: "https://vyfi.io/",
   status: "live"
 }, {
   name: "cstAP3X Liquid Staking",
   desc: "VyFinance's liquid-staked APEX on Cardano — mirrors Prime's ~10% APY while staying composable across DeFi. Yield-bearing, bridge-ready for EVM expansion",
   chains: ["cardano"],
   category: "Liquid Staking",
-  url: "https://app.vyfi.io/",
+  url: "https://vyfi.io/",
   status: "live",
   official: true
 }, {
@@ -1978,7 +2104,7 @@ const EXPLORERS = [{
 const SOCIALS = [{
   name: "X / Twitter",
   handle: "@apexfusion",
-  url: "https://twitter.com/apexfusion",
+  url: "https://x.com/apexfusion",
   glyph: "𝕏",
   note: "Announcements"
 }, {
@@ -1999,34 +2125,16 @@ const SOCIALS = [{
   url: "https://github.com/Apex-Fusion",
   glyph: "⌇",
   note: "23 open repos"
-}, {
-  name: "Medium",
-  handle: "Apex Fusion",
-  url: "https://blog.apexfusion.org",
-  glyph: "¶",
-  note: "Technical writing"
-}, {
-  name: "YouTube",
-  handle: "Apex Fusion",
-  url: "https://youtube.com/@apexfusion",
-  glyph: "▷",
-  note: "Video"
-}, {
-  name: "LinkedIn",
-  handle: "Apex Fusion Foundation",
-  url: "https://linkedin.com/company/apexfusion",
-  glyph: "in",
-  note: "Professional"
 }];
 const EXCHANGES = [{
   name: "LBank",
   desc: "First exchange listing — AP3X/USDT pair, live since Feb 2025",
-  url: "https://lbank.one/s/vhnOox5",
+  url: "https://www.lbank.com/trade/ap3x_usdt/",
   status: "live"
 }, {
   name: "BitMart",
   desc: "Global exchange — AP3X/USDT pair, listed May 2025",
-  url: "https://bitmart.com",
+  url: "https://www.bitmart.com/",
   status: "live"
 }, {
   name: "Coinbase DEX+",
@@ -2106,7 +2214,7 @@ const DEV_RESOURCES = [{
 }, {
   title: "Vector technical docs",
   desc: "Official technical documentation for Vector UTXO L2 — node operation, consensus, integrations",
-  url: "https://apex-fusion.github.io/",
+  url: "https://apex-fusion.github.io/vector-ai-documentation/",
   chain: "vector",
   badge: "New"
 }, {
@@ -2157,7 +2265,7 @@ const NEWS = [{
   title: "VyFinance launches cstAP3X — liquid-staked APEX with ~10% APY on Cardano",
   category: "Ecosystem",
   source: "VyFinance",
-  url: "https://app.vyfi.io/",
+  url: "https://vyfi.io/",
   color: "var(--vector)",
   excerpt: "Cardano-native liquid staking derivative mirrors Prime's ~10% APY while staying composable across Cardano DeFi. EVM extension on the roadmap."
 }, {
@@ -4577,11 +4685,15 @@ function StakingSection() {
     }
   }, "AP3X")), /*#__PURE__*/React.createElement("input", {
     type: "range",
+    id: "staking-amount",
+    name: "stake_amount",
     min: 100,
     max: 1000000,
     step: 100,
     value: amount,
     onChange: e => setAmount(Number(e.target.value)),
+    "aria-label": "Stake amount in AP3X",
+    "aria-valuetext": amount.toLocaleString("en-US") + " AP3X",
     style: {
       width: "100%",
       accentColor: "var(--ink)"
@@ -4713,7 +4825,7 @@ function StakingSection() {
       maxWidth: "60ch"
     }
   }, "VyFinance's liquid-staked APEX on Cardano mirrors Prime's ~10% APY while staying composable across Cardano DeFi \u2014 yield-bearing, bridge-ready for EVM expansion.")), /*#__PURE__*/React.createElement(ExternalLink, {
-    href: "https://app.vyfi.io/",
+    href: "https://vyfi.io/",
     variant: "filled"
   }, "Get cstAP3X"))));
 }
@@ -5446,7 +5558,7 @@ function NetworkSection() {
               return e("div", { key: kind, style: { display: "flex", alignItems: "center", gap: 10 } },
                 e("span", { style: { width: 9, height: 9, borderRadius: "50%", background: meta.color, flexShrink: 0, boxShadow: "0 0 8px " + meta.color } }),
                 e("span", { style: { flex: 1, fontFamily: "var(--f-display)", fontSize: 13, letterSpacing: "-0.005em", color: "var(--ink-2)" } }, meta.label),
-                e("span", { style: { fontFamily: "var(--f-mono)", fontSize: 11, color: meta.color, letterSpacing: "0.06em" } }, "\u00D7" + (counts[kind] || 0)),
+                e("span", { style: { fontFamily: "var(--f-mono)", fontSize: 11, color: meta.color, letterSpacing: "0.06em", fontVariantNumeric: "tabular-nums" }, "aria-label": (counts[kind] || 0) + " nodes" }, String(counts[kind] || 0).padStart(2, "0")),
                 e("span", { style: { fontFamily: "var(--f-mono)", fontSize: 8.5, color: "var(--ink-4)", letterSpacing: "0.14em" } }, meta.tag)
               );
             })
@@ -7704,6 +7816,13 @@ function FusionAI() {
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages, loading]);
+  // Close on Escape when the assistant is open (a11y).
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (ev) => { if (ev.key === "Escape") setOpen(false); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open]);
   const send = async text => {
     if (!text.trim() || loading) return;
     const userMsg = {
@@ -7784,8 +7903,10 @@ function FusionAI() {
   return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("button", {
     className: "ai-fab" + (open ? " open" : ""),
     onClick: () => setOpen(o => !o),
-    title: "Ask Fusion AI",
-    "aria-label": "Ask Fusion AI"
+    title: open ? "Close assistant" : "Ask Fusion AI",
+    "aria-label": open ? "Close assistant" : "Ask Fusion AI",
+    "aria-expanded": open,
+    "aria-controls": "ai-pane"
   }, open ? "×" : /*#__PURE__*/React.createElement("svg", {
     width: "26",
     height: "26",
@@ -7841,7 +7962,11 @@ function FusionAI() {
     x2: "28",
     y2: "18"
   }))), open && /*#__PURE__*/React.createElement("div", {
-    className: "ai-pane"
+    className: "ai-pane",
+    id: "ai-pane",
+    role: "dialog",
+    "aria-modal": "false",
+    "aria-labelledby": "ai-pane-title"
   }, /*#__PURE__*/React.createElement("div", {
     style: {
       padding: "18px 20px",
@@ -7851,6 +7976,7 @@ function FusionAI() {
       justifyContent: "space-between"
     }
   }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    id: "ai-pane-title",
     className: "serif",
     style: {
       fontSize: 22,
@@ -7875,6 +8001,8 @@ function FusionAI() {
     }
   }), "Powered by Claude")), /*#__PURE__*/React.createElement("button", {
     onClick: () => setOpen(false),
+    "aria-label": "Close assistant",
+    title: "Close",
     style: {
       fontSize: 22,
       color: "var(--ink-3)"
@@ -7979,6 +8107,7 @@ function FusionAI() {
     onKeyDown: e => e.key === "Enter" && send(input),
     placeholder: "Ask about Apex Fusion\u2026",
     disabled: loading,
+    "aria-label": "Ask Fusion AI a question",
     style: {
       flex: 1,
       padding: "10px 12px",
@@ -7992,6 +8121,8 @@ function FusionAI() {
   }), /*#__PURE__*/React.createElement("button", {
     onClick: () => send(input),
     disabled: loading || !input.trim(),
+    "aria-label": "Send message",
+    title: "Send",
     style: {
       padding: "0 16px",
       border: "1px solid var(--ink)",
@@ -8012,6 +8143,16 @@ const APEX_IGNITION_PDF_B64 = "JVBERi0xLjYNJeLjz9MNCjEyMSAwIG9iag08PC9GaWx0ZXIvR
 
 function IgnitionSection() {
   const e = React.createElement;
+  // ─────────────────────────────────────────────────────────────────────────
+  // SECURITY MODEL — READ BEFORE EDITING
+  // This gate is *decorative*. CORRECT_PASSWORD, DOCSEND_URL, and the PDF
+  // base-64 (APEX_IGNITION_PDF_B64) all live in the static bundle, so anyone
+  // who opens DevTools or downloads the page can read all three in cleartext.
+  // The form is friction + lead-capture, not access control. Do NOT add new
+  // confidential material here. To make this a real gate, move the PDF and
+  // DocSend redirect behind a server endpoint that validates the email/code
+  // and returns a short-lived signed URL.
+  // ─────────────────────────────────────────────────────────────────────────
   const CORRECT_PASSWORD = "APEXIGNITION2026";
   const DOCSEND_URL = "https://docsend.com/view/s/6idbxs48dxuqdha2";
 
@@ -8163,10 +8304,11 @@ function IgnitionSection() {
         )
       ),
 
-      e("form", { onSubmit: handleSubmit, className: "ignition-form", autoComplete: "off" },
+      e("form", { onSubmit: handleSubmit, className: "ignition-form", autoComplete: "off", method: "post", action: "#", noValidate: false },
         e("label", { className: "eyebrow", htmlFor: "ig-email" }, "EMAIL"),
         e("input", {
           id: "ig-email",
+          name: "email",
           type: "email",
           value: email,
           onChange: function(ev) { setEmail(ev.target.value); },
@@ -8178,6 +8320,7 @@ function IgnitionSection() {
         e("label", { className: "eyebrow", htmlFor: "ig-code", style: { marginTop: 18 } }, "ACCESS CODE"),
         e("input", {
           id: "ig-code",
+          name: "code",
           type: "password",
           value: password,
           onChange: function(ev) { setPassword(ev.target.value); },
@@ -8353,7 +8496,10 @@ function App() {
     zone: "America/New_York",
     code: "ET"
   }];
-  return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+  return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("a", {
+    href: "#main-content",
+    className: "skip-link"
+  }, "Skip to content"), /*#__PURE__*/React.createElement("div", {
     className: "app"
   }, navOpen && /*#__PURE__*/React.createElement("div", {
     className: "nav-backdrop open",
@@ -8424,6 +8570,7 @@ function App() {
       const childBtns = isExpanded ? s.children.map((c, ci) => /*#__PURE__*/React.createElement("button", {
         key: c.id,
         className: "nav-item nav-sub" + (active === c.id ? " active" : ""),
+        "aria-current": active === c.id ? "page" : undefined,
         onClick: () => {
           setActive(c.id);
           setNavOpen(false);
@@ -8438,6 +8585,7 @@ function App() {
     return [/*#__PURE__*/React.createElement("button", {
       key: s.id,
       className: "nav-item" + (active === s.id ? " active" : ""),
+      "aria-current": active === s.id ? "page" : undefined,
       onClick: () => {
         setActive(s.id);
         setNavOpen(false);
@@ -8447,7 +8595,7 @@ function App() {
     }, String(i).padStart(2, "0")), /*#__PURE__*/React.createElement("span", {
       className: "label"
     }, s.label))];
-  })), /*#__PURE__*/React.createElement("div", {
+  })), /*#__PURE__*/React.createElement("footer", {
     className: "nav-foot",
     style: {
       marginTop: 24,
@@ -8463,8 +8611,9 @@ function App() {
     target: "_blank",
     rel: "noopener noreferrer"
   }, "GitHub \u2197")))), /*#__PURE__*/React.createElement("main", {
-    className: "main"
-  }, /*#__PURE__*/React.createElement("div", {
+    className: "main",
+    id: "main-content"
+  }, /*#__PURE__*/React.createElement("header", {
     className: "top-meta"
   }, /*#__PURE__*/React.createElement("button", {
     className: "nav-toggle",
@@ -8506,7 +8655,8 @@ function App() {
   }, /*#__PURE__*/React.createElement("button", {
     onClick: () => setTheme(t => t === "light" ? "dark" : "light"),
     title: theme === "light" ? "Switch to dark mode" : "Switch to light mode",
-    "aria-label": "Toggle theme",
+    "aria-label": theme === "light" ? "Switch to dark mode" : "Switch to light mode",
+    "aria-pressed": theme === "light",
     style: {
       display: "inline-flex",
       alignItems: "center",
