@@ -332,13 +332,28 @@ html[data-theme="light"] .top-meta .coord span > span:first-child {
   /* Nav collapses to off-canvas drawer */
   .nav {
     position: fixed; left: 0; top: 0;
-    width: 280px; max-width: 85vw; height: 100vh;
+    width: 280px; max-width: 85vw;
+    height: 100vh;          /* fallback for older browsers */
+    height: 100svh;         /* small viewport — never larger than the visible area */
+    height: 100dvh;         /* dynamic viewport — adjusts with iOS URL-bar collapse */
+    max-height: 100dvh;
     transform: translateX(-100%);
     transition: transform .3s cubic-bezier(.2,.7,.2,1);
     box-shadow: 20px 0 60px rgba(0,0,0,0.4);
     z-index: 50;
+    overscroll-behavior: contain;
+    /* Respect iOS notch + home indicator so brand and foot stay tappable */
+    padding-top: max(28px, env(safe-area-inset-top));
+    padding-bottom: max(28px, env(safe-area-inset-bottom));
   }
   .nav.open { transform: none; }
+  /* Lock body scroll while drawer is open so touch events stay inside the nav */
+  body:has(.nav.open) { overflow: hidden; touch-action: none; }
+  /* Smooth momentum scroll on older iOS; modern iOS already handles this. */
+  .nav-list { -webkit-overflow-scrolling: touch; }
+  /* Slightly larger touch targets on mobile for easier tapping while scrolling */
+  .nav-item { padding: 12px 0; min-height: 40px; }
+  .nav-sub { padding-top: 10px; padding-bottom: 10px; }
   .nav-toggle {
     display: flex; align-items: center; gap: 8px;
     font-family: var(--f-mono); font-size: 11px;
@@ -1929,6 +1944,12 @@ const SECTIONS = [{
   }, {
     id: "vectorEconomy",
     label: "Vector Economy"
+  }, {
+    id: "ephemeral",
+    label: "Ephemeral Markets"
+  }, {
+    id: "positiveSum",
+    label: "Positive-Sum Games"
   }]
 }, {
   id: "ignition",
@@ -8379,6 +8400,2968 @@ function VectorEconomySection() {
     e("div", { dangerouslySetInnerHTML: { __html: html } })
   );
 }
+function EphemeralMarketsSection() {
+  const e = React.createElement;
+  const css = `
+/* ============================================================
+   EPHEMERAL MARKETS — dedicated stylesheet
+   Making the unstoreable tradeable.
+   ============================================================ */
+
+/* 1. Bypass main-pad for full-width magazine layout */
+.main-pad:has(> .section-wrap.ephemeral-section) { max-width: none !important; padding: 0 !important; }
+@media (max-width: 900px) { .main-pad:has(> .section-wrap.ephemeral-section) { padding: 0 !important; } }
+
+/* 2. Containment + tokens + reset */
+.ephemeral-section {
+  position: relative;
+  isolation: isolate;
+  min-height: 100vh;
+  overflow-x: clip;
+
+  --em-bg-0:    #06100C;
+  --em-bg-1:    #0C1A14;
+  --em-bg-2:    #14271E;
+  --em-bg-3:    #1B362A;
+
+  --em-ink-0:   #ECF4EE;
+  --em-ink-1:   #BFD4C7;
+  --em-ink-2:   #859B91;
+  --em-ink-3:   #5A7368;
+  --em-ink-4:   #3A4D44;
+
+  --em-line:    #1A3026;
+  --em-line-2:  #243F33;
+  --em-line-3:  #2E5343;
+
+  --em-emerald:      #4BB87A;
+  --em-emerald-soft: #7FD5A1;
+  --em-ember:        #E0623E;
+  --em-ember-soft:   #F08A66;
+  --em-ignition:     #F2A03C;
+  --em-plasma:       #FFE0B8;
+  --em-violet:       #8B7FD5;
+  --em-violet-soft:  #ADA1ED;
+  --em-azure:        #5BA8E0;
+  --em-azure-soft:   #8DC5ED;
+
+  --em-f-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --em-f-mono:    "JetBrains Mono", ui-monospace, "SF Mono", Consolas, monospace;
+}
+
+.ephemeral-section *,
+.ephemeral-section *::before,
+.ephemeral-section *::after { box-sizing: border-box; }
+
+.ephemeral-section {
+  font-family: var(--em-f-display);
+  color: var(--em-ink-0);
+  background: var(--em-bg-0);
+  -webkit-font-smoothing: antialiased;
+  line-height: 1.5;
+}
+
+/* Atmospheric backdrop */
+.ephemeral-section::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(70% 50% at 85% -5%, oklch(0.65 0.15 230 / 0.10), transparent 65%),
+    radial-gradient(60% 40% at -5% 70%, oklch(0.70 0.15 160 / 0.06), transparent 65%);
+}
+.ephemeral-section::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(to right, var(--em-line) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--em-line) 1px, transparent 1px);
+  background-size: 80px 80px;
+  opacity: 0.18;
+  mask-image: radial-gradient(70% 70% at 50% 30%, black, transparent 80%);
+}
+
+/* 3. Page wrapper */
+.ephemeral-section .em-page {
+  position: relative;
+  z-index: 1;
+  max-width: 1480px;
+  margin: 0 auto;
+  padding: 32px 64px 96px;
+}
+@media (max-width: 1100px) { .ephemeral-section .em-page { padding: 28px 40px 80px; } }
+@media (max-width: 900px)  { .ephemeral-section .em-page { padding: 20px 20px 64px; } }
+
+/* 4. Masthead */
+.ephemeral-section .em-mast {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 18px 0;
+  border-top: 1px solid var(--em-line-2);
+  border-bottom: 1px solid var(--em-line-2);
+  font-family: var(--em-f-mono);
+  font-size: 10px; letter-spacing: 0.28em;
+  text-transform: uppercase; color: var(--em-ink-3);
+}
+.ephemeral-section .em-mast-l { display: flex; gap: 28px; flex-wrap: wrap; }
+.ephemeral-section .em-mast-brand { color: var(--em-ember); font-weight: 600; }
+.ephemeral-section .em-mast-live { color: var(--em-azure); display: inline-flex; align-items: center; gap: 8px; }
+.ephemeral-section .em-mast-live::before {
+  content: ''; width: 6px; height: 6px; border-radius: 50%;
+  background: var(--em-azure);
+  box-shadow: 0 0 10px var(--em-azure);
+  animation: em-pulse 1.8s ease-in-out infinite;
+}
+@keyframes em-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+/* 5. Hero */
+.ephemeral-section .em-hero {
+  display: grid;
+  grid-template-columns: 1.25fr 1fr;
+  gap: 80px;
+  align-items: center;
+  padding: 100px 0 96px;
+  border-bottom: 1px solid var(--em-line-2);
+}
+@media (max-width: 1100px) {
+  .ephemeral-section .em-hero {
+    grid-template-columns: 1fr; gap: 56px;
+    padding: 72px 0 64px;
+  }
+}
+
+.ephemeral-section .em-eyebrow {
+  font-family: var(--em-f-mono);
+  font-size: 11px; letter-spacing: 0.32em; text-transform: uppercase;
+  color: var(--em-azure);
+  margin-bottom: 36px;
+  display: inline-flex; align-items: center; gap: 14px;
+}
+.ephemeral-section .em-eyebrow::before {
+  content: ''; width: 32px; height: 1px; background: var(--em-azure);
+}
+
+.ephemeral-section .em-hero h1 {
+  font-family: var(--em-f-display);
+  font-weight: 500;
+  font-size: clamp(56px, 9vw, 132px);
+  line-height: 0.92;
+  letter-spacing: -0.045em;
+  margin: 0;
+  color: var(--em-ink-0);
+  text-wrap: balance;
+}
+.ephemeral-section .em-hero h1 em {
+  font-style: italic; font-weight: 300;
+  color: var(--em-ember);
+}
+
+.ephemeral-section .em-hero .lede {
+  margin-top: 36px; max-width: 56ch;
+  font-size: 18px; line-height: 1.6;
+  color: var(--em-ink-1);
+}
+.ephemeral-section .em-hero .lede strong { color: var(--em-ink-0); font-weight: 500; }
+.ephemeral-section .em-hero .lede .term { color: var(--em-ember-soft); font-weight: 500; }
+
+.ephemeral-section .em-hero-pills {
+  margin-top: 40px;
+  display: flex; flex-wrap: wrap; gap: 10px;
+}
+.ephemeral-section .em-hero-pill {
+  font-family: var(--em-f-mono);
+  font-size: 10.5px; letter-spacing: 0.16em; text-transform: uppercase;
+  color: var(--em-ink-1);
+  padding: 9px 14px;
+  border: 1px solid var(--em-line-2);
+  background: color-mix(in oklch, var(--em-bg-1) 60%, transparent);
+}
+.ephemeral-section .em-hero-pill strong {
+  color: var(--em-ember);
+  font-weight: 600;
+  margin-right: 6px;
+}
+
+/* Hero diagram */
+.ephemeral-section .em-hero-art {
+  position: relative;
+  aspect-ratio: 1;
+  border: 1px solid var(--em-line-2);
+  background: linear-gradient(160deg, var(--em-bg-1), var(--em-bg-0));
+  overflow: hidden;
+}
+.ephemeral-section .em-hero-art > .corner {
+  position: absolute; width: 14px; height: 14px;
+  border: 1px solid var(--em-ember);
+}
+.ephemeral-section .em-hero-art > .corner.tl { top: -1px; left: -1px; border-right: none; border-bottom: none; }
+.ephemeral-section .em-hero-art > .corner.tr { top: -1px; right: -1px; border-left: none; border-bottom: none; }
+.ephemeral-section .em-hero-art > .corner.bl { bottom: -1px; left: -1px; border-right: none; border-top: none; }
+.ephemeral-section .em-hero-art > .corner.br { bottom: -1px; right: -1px; border-left: none; border-top: none; }
+.ephemeral-section .em-hero-art .label {
+  position: absolute; top: 18px; left: 22px;
+  font-family: var(--em-f-mono);
+  font-size: 9.5px; letter-spacing: 0.28em; text-transform: uppercase;
+  color: var(--em-ink-3);
+}
+.ephemeral-section .em-hero-art .stat-overlay {
+  position: absolute; bottom: 18px; left: 22px; right: 22px;
+  display: flex; justify-content: space-between;
+  font-family: var(--em-f-mono);
+  font-size: 9.5px; letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--em-ink-2);
+}
+.ephemeral-section .em-hero-art .stat-overlay strong {
+  color: var(--em-azure); font-weight: 500;
+}
+.ephemeral-section .em-hero-art svg {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+}
+
+/* Pull-quote block */
+.ephemeral-section .em-quote-block {
+  padding: 96px 0;
+  border-bottom: 1px solid var(--em-line-2);
+}
+@media (max-width: 1100px) { .ephemeral-section .em-quote-block { padding: 64px 0; } }
+
+.ephemeral-section .em-quote {
+  margin: 0;
+  font-family: var(--em-f-display);
+  font-weight: 400;
+  font-size: clamp(32px, 4.2vw, 60px);
+  line-height: 1.08;
+  letter-spacing: -0.028em;
+  color: var(--em-ink-0);
+  max-width: 22ch;
+}
+.ephemeral-section .em-quote em {
+  font-style: italic; font-weight: 300;
+  color: var(--em-ember);
+}
+.ephemeral-section .em-quote-attr {
+  margin-top: 32px;
+  font-family: var(--em-f-mono);
+  font-size: 10px; letter-spacing: 0.28em; text-transform: uppercase;
+  color: var(--em-ink-3);
+  display: inline-flex; align-items: center; gap: 14px;
+}
+.ephemeral-section .em-quote-attr::before {
+  content: ''; width: 28px; height: 1px; background: var(--em-ink-3);
+}
+
+/* 8. Section heads */
+.ephemeral-section .em-section-head {
+  padding: 80px 0 48px;
+  display: flex; align-items: flex-end; justify-content: space-between;
+  gap: 40px; flex-wrap: wrap;
+  border-bottom: 1px solid var(--em-line);
+}
+.ephemeral-section .em-section-head .l { display: flex; align-items: baseline; gap: 28px; }
+.ephemeral-section .em-section-head .num {
+  font-family: var(--em-f-display); font-weight: 300;
+  font-size: 88px; line-height: 0.85;
+  letter-spacing: -0.04em;
+  color: var(--em-azure);
+  opacity: 0.9;
+  flex-shrink: 0;
+}
+.ephemeral-section .em-section-head .num .ord {
+  font-family: var(--em-f-mono);
+  font-size: 10.5px; letter-spacing: 0.28em;
+  color: var(--em-azure);
+  display: block; margin-bottom: 8px; opacity: 1;
+}
+.ephemeral-section .em-section-head h2 {
+  font-family: var(--em-f-display); font-weight: 500;
+  font-size: clamp(32px, 4vw, 52px);
+  letter-spacing: -0.03em; line-height: 1;
+  margin: 0; color: var(--em-ink-0);
+}
+.ephemeral-section .em-section-head h2 .sub {
+  display: block; font-weight: 300;
+  font-size: 0.55em;
+  color: var(--em-ink-2);
+  margin-top: 14px;
+  letter-spacing: -0.02em;
+}
+.ephemeral-section .em-section-head .meta {
+  font-family: var(--em-f-mono);
+  font-size: 10.5px; letter-spacing: 0.22em; text-transform: uppercase;
+  color: var(--em-ink-3);
+  text-align: right; line-height: 1.8;
+}
+.ephemeral-section .em-section-head .meta strong { color: var(--em-ember); font-weight: 500; }
+
+/* Two-column barriers/capabilities grid */
+.ephemeral-section .em-duo {
+  padding: 64px 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 80px;
+  border-bottom: 1px solid var(--em-line);
+}
+@media (max-width: 1100px) {
+  .ephemeral-section .em-duo { grid-template-columns: 1fr; gap: 64px; padding: 48px 0; }
+}
+
+.ephemeral-section .em-col-tag {
+  display: inline-flex; align-items: center; gap: 12px;
+  font-family: var(--em-f-mono);
+  font-size: 10.5px; letter-spacing: 0.28em; text-transform: uppercase;
+  margin-bottom: 24px;
+}
+.ephemeral-section .em-col-tag.barrier { color: var(--em-ember); }
+.ephemeral-section .em-col-tag.capability { color: var(--em-emerald); }
+.ephemeral-section .em-col-tag::before {
+  content: ''; width: 28px; height: 1px; background: currentColor;
+}
+
+.ephemeral-section .em-col-head {
+  font-family: var(--em-f-display); font-weight: 500;
+  font-size: 28px; letter-spacing: -0.025em;
+  line-height: 1.1; color: var(--em-ink-0);
+  margin: 0 0 40px; max-width: 22ch;
+}
+
+.ephemeral-section .em-item {
+  display: grid;
+  grid-template-columns: 56px 1fr;
+  gap: 20px;
+  padding: 24px 0;
+  border-top: 1px solid var(--em-line);
+}
+.ephemeral-section .em-item:last-child { border-bottom: 1px solid var(--em-line); }
+.ephemeral-section .em-item-num {
+  font-family: var(--em-f-display); font-weight: 300;
+  font-size: 36px; line-height: 0.9;
+  letter-spacing: -0.04em;
+  color: var(--c, var(--em-emerald));
+}
+.ephemeral-section .em-item-title {
+  font-family: var(--em-f-display); font-weight: 500;
+  font-size: 19px; letter-spacing: -0.018em;
+  color: var(--em-ink-0);
+  margin: 4px 0 8px;
+}
+.ephemeral-section .em-item-desc {
+  font-size: 14px; line-height: 1.6;
+  color: var(--em-ink-2);
+  margin: 0;
+}
+.ephemeral-section .em-item-desc strong { color: var(--em-ink-1); font-weight: 500; }
+.ephemeral-section .em-item-tag {
+  font-family: var(--em-f-mono);
+  font-size: 9.5px; letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--c, var(--em-emerald));
+  margin-top: 10px;
+}
+
+/* Verticals — large alternating layout */
+.ephemeral-section .em-vertical {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 80px;
+  padding: 80px 0;
+  border-bottom: 1px solid var(--em-line);
+  align-items: center;
+}
+.ephemeral-section .em-vertical:nth-child(even) .em-v-meta { order: 2; }
+.ephemeral-section .em-vertical:nth-child(even) .em-v-art  { order: 1; }
+@media (max-width: 1100px) {
+  .ephemeral-section .em-vertical {
+    grid-template-columns: 1fr; gap: 40px; padding: 56px 0;
+  }
+  .ephemeral-section .em-vertical:nth-child(even) .em-v-meta { order: 1; }
+  .ephemeral-section .em-vertical:nth-child(even) .em-v-art  { order: 2; }
+}
+
+.ephemeral-section .em-v-num {
+  font-family: var(--em-f-mono);
+  font-size: 11px; letter-spacing: 0.32em; text-transform: uppercase;
+  color: var(--c, var(--em-emerald));
+  margin-bottom: 24px;
+  display: inline-flex; align-items: center; gap: 14px;
+}
+.ephemeral-section .em-v-num::before {
+  content: ''; width: 28px; height: 1px;
+  background: var(--c, var(--em-emerald));
+}
+.ephemeral-section .em-v-name {
+  font-family: var(--em-f-display);
+  font-weight: 500;
+  font-size: clamp(40px, 5.4vw, 76px);
+  letter-spacing: -0.04em;
+  line-height: 0.92;
+  margin: 0 0 24px;
+  color: var(--em-ink-0);
+}
+.ephemeral-section .em-v-tag {
+  font-family: var(--em-f-display);
+  font-style: italic; font-weight: 300;
+  font-size: clamp(20px, 2vw, 26px);
+  line-height: 1.3;
+  color: var(--c, var(--em-emerald));
+  margin: 0 0 32px;
+  letter-spacing: -0.018em;
+  max-width: 22ch;
+}
+.ephemeral-section .em-v-lede {
+  font-size: 16px; line-height: 1.65;
+  color: var(--em-ink-1);
+  margin: 0 0 36px;
+  max-width: 50ch;
+}
+.ephemeral-section .em-v-lede strong { color: var(--em-ink-0); font-weight: 500; }
+
+.ephemeral-section .em-v-points {
+  list-style: none; margin: 0 0 36px; padding: 0;
+}
+.ephemeral-section .em-v-points li {
+  display: grid;
+  grid-template-columns: 80px 1fr;
+  gap: 18px;
+  font-size: 14.5px; line-height: 1.6;
+  color: var(--em-ink-1);
+  padding: 16px 0;
+  border-top: 1px solid var(--em-line);
+}
+.ephemeral-section .em-v-points li:last-child { border-bottom: 1px solid var(--em-line); }
+.ephemeral-section .em-v-points .point-num {
+  font-family: var(--em-f-mono);
+  font-size: 10px; letter-spacing: 0.16em;
+  color: var(--c, var(--em-emerald));
+  text-transform: uppercase;
+  padding-top: 3px;
+}
+.ephemeral-section .em-v-points strong {
+  color: var(--em-ink-0); font-weight: 500;
+}
+
+.ephemeral-section .em-v-chips {
+  display: flex; flex-wrap: wrap; gap: 8px;
+}
+.ephemeral-section .em-v-chip {
+  font-family: var(--em-f-mono);
+  font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase;
+  color: var(--c, var(--em-emerald));
+  padding: 7px 13px;
+  border: 1px solid;
+  border-color: color-mix(in oklch, var(--c, var(--em-emerald)) 50%, transparent);
+  background: color-mix(in oklch, var(--c, var(--em-emerald)) 6%, transparent);
+}
+
+/* Vertical art panel */
+.ephemeral-section .em-v-art {
+  position: relative;
+  aspect-ratio: 1.05;
+  border: 1px solid var(--em-line-2);
+  background:
+    radial-gradient(ellipse at 50% 100%, color-mix(in oklch, var(--c, var(--em-emerald)) 16%, transparent), transparent 70%),
+    linear-gradient(160deg, var(--em-bg-1), var(--em-bg-0));
+  overflow: hidden;
+}
+.ephemeral-section .em-v-art > .corner {
+  position: absolute; width: 14px; height: 14px;
+  border: 1px solid var(--c, var(--em-emerald));
+  opacity: 0.6;
+}
+.ephemeral-section .em-v-art > .corner.tl { top: 14px; left: 14px; border-right: none; border-bottom: none; }
+.ephemeral-section .em-v-art > .corner.tr { top: 14px; right: 14px; border-left: none; border-bottom: none; }
+.ephemeral-section .em-v-art > .corner.bl { bottom: 14px; left: 14px; border-right: none; border-top: none; }
+.ephemeral-section .em-v-art > .corner.br { bottom: 14px; right: 14px; border-left: none; border-top: none; }
+
+.ephemeral-section .em-v-art .label {
+  position: absolute; top: 18px; left: 30px;
+  font-family: var(--em-f-mono);
+  font-size: 9px; letter-spacing: 0.28em; text-transform: uppercase;
+  color: var(--em-ink-3);
+}
+.ephemeral-section .em-v-art .stat-overlay {
+  position: absolute; bottom: 22px; left: 30px; right: 30px;
+  display: flex; justify-content: space-between;
+  font-family: var(--em-f-mono);
+  font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--em-ink-2);
+}
+.ephemeral-section .em-v-art .stat-overlay strong {
+  color: var(--c, var(--em-emerald));
+  font-weight: 500;
+}
+.ephemeral-section .em-v-art svg {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+}
+
+/* Apex Fusion mapping — three-card stack */
+.ephemeral-section .em-stack {
+  padding: 64px 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  border-bottom: 1px solid var(--em-line);
+}
+@media (max-width: 1100px) {
+  .ephemeral-section .em-stack { grid-template-columns: 1fr; }
+}
+.ephemeral-section .em-stack-card {
+  position: relative;
+  border: 1px solid var(--em-line);
+  background: linear-gradient(180deg, color-mix(in oklch, var(--em-bg-1) 80%, transparent), var(--em-bg-0));
+  padding: 40px 28px 32px;
+  min-height: 280px;
+  display: flex; flex-direction: column;
+  transition: border-color .3s, transform .3s;
+}
+.ephemeral-section .em-stack-card:hover {
+  border-color: var(--em-line-2);
+  transform: translateY(-2px);
+}
+.ephemeral-section .em-stack-card::before {
+  content: '';
+  position: absolute; top: 0; left: 0;
+  width: 40px; height: 2px;
+  background: var(--c);
+  box-shadow: 0 0 12px var(--c);
+}
+.ephemeral-section .em-stack-num {
+  font-family: var(--em-f-mono);
+  font-size: 10px; letter-spacing: 0.28em;
+  color: var(--c);
+  margin-bottom: 24px;
+}
+.ephemeral-section .em-stack-name {
+  font-family: var(--em-f-display); font-weight: 500;
+  font-size: 26px; letter-spacing: -0.025em;
+  line-height: 1.05; color: var(--em-ink-0);
+  margin-bottom: 14px;
+}
+.ephemeral-section .em-stack-impl {
+  font-family: var(--em-f-mono);
+  font-size: 11px; letter-spacing: 0.06em;
+  color: var(--c);
+  line-height: 1.55;
+  margin-bottom: 20px;
+}
+.ephemeral-section .em-stack-desc {
+  font-size: 13.5px; line-height: 1.65;
+  color: var(--em-ink-2);
+  margin-top: auto;
+}
+.ephemeral-section .em-stack-desc strong { color: var(--em-ink-1); font-weight: 500; }
+
+/* Phased rollout */
+.ephemeral-section .em-phases {
+  padding: 64px 0;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 18px;
+}
+@media (max-width: 1100px) {
+  .ephemeral-section .em-phases { grid-template-columns: repeat(2, 1fr); gap: 28px; }
+}
+@media (max-width: 600px) {
+  .ephemeral-section .em-phases { grid-template-columns: 1fr; }
+}
+.ephemeral-section .em-phase {
+  position: relative;
+  border: 1px solid var(--em-line);
+  background: linear-gradient(180deg, color-mix(in oklch, var(--em-bg-1) 80%, transparent), var(--em-bg-0));
+  padding: 28px 22px 26px;
+  min-height: 260px;
+  display: flex; flex-direction: column;
+}
+.ephemeral-section .em-phase::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  background: var(--c);
+  box-shadow: 0 0 10px var(--c);
+}
+.ephemeral-section .em-phase-ord {
+  font-family: var(--em-f-display); font-weight: 300;
+  font-size: 56px; line-height: 0.85;
+  letter-spacing: -0.04em;
+  color: var(--c); opacity: 0.5;
+  position: absolute; top: 20px; right: 22px;
+}
+.ephemeral-section .em-phase-step {
+  font-family: var(--em-f-mono);
+  font-size: 9.5px; letter-spacing: 0.26em;
+  text-transform: uppercase; color: var(--em-ink-3);
+  margin-bottom: 8px;
+}
+.ephemeral-section .em-phase-name {
+  font-family: var(--em-f-display); font-weight: 600;
+  font-size: 22px; letter-spacing: -0.018em;
+  line-height: 1.05; color: var(--em-ink-0);
+  margin-bottom: 6px;
+}
+.ephemeral-section .em-phase-stage {
+  font-family: var(--em-f-mono);
+  font-size: 10px; letter-spacing: 0.22em;
+  text-transform: uppercase; color: var(--c);
+  margin-bottom: 16px;
+}
+.ephemeral-section .em-phase-points {
+  list-style: none; margin: 0; padding: 0;
+  font-size: 13px; line-height: 1.55;
+}
+.ephemeral-section .em-phase-points li {
+  padding: 9px 0;
+  border-top: 1px solid var(--em-line);
+  color: var(--em-ink-2);
+}
+.ephemeral-section .em-phase-points li:first-child { border-top: none; padding-top: 0; }
+.ephemeral-section .em-phase-points strong {
+  color: var(--em-ink-0); font-weight: 500;
+  display: block;
+}
+
+/* Heritage strip */
+.ephemeral-section .em-heritage {
+  margin-top: 64px;
+  padding: 48px 0;
+  border-top: 1px solid var(--em-line-2);
+  border-bottom: 1px solid var(--em-line-2);
+}
+.ephemeral-section .em-heritage-eb {
+  font-family: var(--em-f-mono);
+  font-size: 11px; letter-spacing: 0.32em; text-transform: uppercase;
+  color: var(--em-azure);
+  margin-bottom: 32px;
+  display: inline-flex; align-items: center; gap: 14px;
+}
+.ephemeral-section .em-heritage-eb::before {
+  content: ''; width: 28px; height: 1px; background: var(--em-azure);
+}
+.ephemeral-section .em-heritage-strip {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 32px;
+}
+@media (max-width: 900px) {
+  .ephemeral-section .em-heritage-strip { grid-template-columns: repeat(2, 1fr); gap: 32px; }
+}
+.ephemeral-section .em-heritage-item {
+  border-left: 1px solid var(--em-line-2);
+  padding-left: 22px;
+}
+.ephemeral-section .em-heritage-tag {
+  font-family: var(--em-f-mono);
+  font-size: 10px; letter-spacing: 0.24em; text-transform: uppercase;
+  color: var(--em-ember);
+  margin-bottom: 14px;
+}
+.ephemeral-section .em-heritage-name {
+  font-family: var(--em-f-display); font-weight: 500;
+  font-size: 18px; color: var(--em-ink-0);
+  letter-spacing: -0.015em;
+  margin-bottom: 8px;
+}
+.ephemeral-section .em-heritage-detail {
+  font-size: 13px; line-height: 1.55;
+  color: var(--em-ink-2);
+}
+
+/* Colophon */
+.ephemeral-section .em-colophon {
+  margin-top: 64px;
+  padding-top: 24px;
+  border-top: 1px solid var(--em-line-2);
+  display: flex; justify-content: space-between; flex-wrap: wrap;
+  gap: 24px;
+  font-family: var(--em-f-mono);
+  font-size: 10px; letter-spacing: 0.24em; text-transform: uppercase;
+  color: var(--em-ink-3);
+}
+.ephemeral-section .em-colophon .brand { color: var(--em-ember); }
+.ephemeral-section .em-colophon .end { display: flex; gap: 24px; }
+`;
+
+  const html = `<main class="em-page">
+
+  <!-- Masthead -->
+  <header class="em-mast">
+    <div class="em-mast-l">
+      <span class="em-mast-brand">AP3X · R&amp;D</span>
+      <span>Vol. 01 / Issue 06</span>
+      <span>Ephemeral Markets</span>
+    </div>
+    <div><span class="em-mast-live">Research · Active</span></div>
+  </header>
+
+  <!-- Hero -->
+  <section class="em-hero">
+    <div>
+      <div class="em-eyebrow">§ 06 — The Ephemeral Markets Thesis</div>
+      <h1>Making the<br><em>unstoreable</em><br>tradeable.</h1>
+      <p class="lede">Three commodities define the next decade of infrastructure spend — <strong>agentic compute</strong>, <strong>network capacity</strong>, and <strong>grid flexibility</strong>. None can be inventoried. Each is exploding in demand. And every prior attempt at a market has stumbled on the same three barriers: <span class="term">no fungibility, no price discovery, no hedging</span>. Apex Fusion is the substrate that closes them.</p>
+      <div class="em-hero-pills">
+        <span class="em-hero-pill"><strong>03</strong>commodities</span>
+        <span class="em-hero-pill"><strong>03</strong>barriers</span>
+        <span class="em-hero-pill"><strong>03</strong>capabilities</span>
+        <span class="em-hero-pill"><strong>04</strong>phases</span>
+      </div>
+    </div>
+
+    <!-- Hero diagram: three commodities flowing into one substrate -->
+    <div class="em-hero-art">
+      <span class="corner tl"></span><span class="corner tr"></span>
+      <span class="corner bl"></span><span class="corner br"></span>
+      <div class="label">FIG. 06.0 · MARKET TOPOLOGY</div>
+      <svg viewBox="0 0 400 400" preserveAspectRatio="xMidYMid meet">
+        <defs>
+          <radialGradient id="emCore" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stop-color="#FFE0B8" stop-opacity="0.95"/>
+            <stop offset="40%" stop-color="#E0623E" stop-opacity="0.55"/>
+            <stop offset="100%" stop-color="#9A2E1E" stop-opacity="0"/>
+          </radialGradient>
+          <linearGradient id="emFlowA" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#5BA8E0" stop-opacity="0"/>
+            <stop offset="100%" stop-color="#5BA8E0" stop-opacity="0.7"/>
+          </linearGradient>
+          <linearGradient id="emFlowB" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#7FD5A1" stop-opacity="0"/>
+            <stop offset="100%" stop-color="#7FD5A1" stop-opacity="0.7"/>
+          </linearGradient>
+          <linearGradient id="emFlowC" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#F2A03C" stop-opacity="0"/>
+            <stop offset="100%" stop-color="#F2A03C" stop-opacity="0.7"/>
+          </linearGradient>
+        </defs>
+
+        <!-- Outer commodity nodes -->
+        <g>
+          <!-- COMPUTE - top -->
+          <g transform="translate(200 70)">
+            <circle r="32" fill="none" stroke="#7FD5A1" stroke-width="1.4"/>
+            <circle r="32" fill="#1F7A4C" fill-opacity="0.18"/>
+            <text y="-2" text-anchor="middle" font-family="JetBrains Mono" font-size="10" font-weight="600" fill="#7FD5A1" letter-spacing="2">COMPUTE</text>
+            <text y="12" text-anchor="middle" font-family="JetBrains Mono" font-size="8" fill="#7A9285" letter-spacing="1.5">APU · 1–5</text>
+          </g>
+          <!-- CONNECTIVITY - bottom-left -->
+          <g transform="translate(80 290)">
+            <circle r="32" fill="none" stroke="#8DC5ED" stroke-width="1.4"/>
+            <circle r="32" fill="#1B5C8A" fill-opacity="0.22"/>
+            <text y="-2" text-anchor="middle" font-family="JetBrains Mono" font-size="9" font-weight="600" fill="#8DC5ED" letter-spacing="1.5">CONNECT</text>
+            <text y="12" text-anchor="middle" font-family="JetBrains Mono" font-size="8" fill="#7A9285" letter-spacing="1.5">SLICE · 5G</text>
+          </g>
+          <!-- ENERGY - bottom-right -->
+          <g transform="translate(320 290)">
+            <circle r="32" fill="none" stroke="#F2A03C" stroke-width="1.4"/>
+            <circle r="32" fill="#9A6020" fill-opacity="0.22"/>
+            <text y="-2" text-anchor="middle" font-family="JetBrains Mono" font-size="10" font-weight="600" fill="#F2A03C" letter-spacing="2">ENERGY</text>
+            <text y="12" text-anchor="middle" font-family="JetBrains Mono" font-size="8" fill="#7A9285" letter-spacing="1.5">DER · GO</text>
+          </g>
+        </g>
+
+        <!-- Flow lines into core -->
+        <g fill="none" stroke-width="1.2" opacity="0.7">
+          <line x1="200" y1="102" x2="200" y2="170" stroke="url(#emFlowB)" stroke-dasharray="4 4"/>
+          <line x1="106" y1="270" x2="178" y2="216" stroke="url(#emFlowA)" stroke-dasharray="4 4"/>
+          <line x1="294" y1="270" x2="222" y2="216" stroke="url(#emFlowC)" stroke-dasharray="4 4"/>
+        </g>
+
+        <!-- Core: AP3X / Apex Fusion substrate -->
+        <g transform="translate(200 200)">
+          <circle r="48" fill="url(#emCore)"/>
+          <circle r="32" fill="none" stroke="#E0623E" stroke-width="1.4"/>
+          <circle r="32" fill="#06100C" fill-opacity="0.6"/>
+          <text y="-4" text-anchor="middle" font-family="JetBrains Mono" font-size="11" font-weight="600" fill="#FFE0B8" letter-spacing="2">AP3X</text>
+          <text y="10" text-anchor="middle" font-family="JetBrains Mono" font-size="7.5" fill="#F08A66" letter-spacing="1.5">SUBSTRATE</text>
+        </g>
+
+        <!-- Bottom: tri-chain breakdown -->
+        <g transform="translate(200 360)" font-family="JetBrains Mono" font-size="8" letter-spacing="1.5">
+          <text x="-130" text-anchor="start" fill="#7A9285">PRIME · UTXO</text>
+          <text x="-25" text-anchor="middle" fill="#7A9285">VECTOR</text>
+          <text x="115" text-anchor="end" fill="#7A9285">NEXUS · EVM</text>
+        </g>
+
+        <!-- Concentric reach circles -->
+        <g fill="none" stroke="#243F33" stroke-width="0.6">
+          <circle cx="200" cy="200" r="80" stroke-dasharray="2 4"/>
+          <circle cx="200" cy="200" r="130" stroke-dasharray="2 4" opacity="0.5"/>
+        </g>
+      </svg>
+      <div class="stat-overlay">
+        <span><strong>3</strong> markets</span>
+        <span><strong>1</strong> ledger</span>
+        <span><strong>0</strong> intermediaries</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Pull-quote / thesis -->
+  <section class="em-quote-block">
+    <blockquote class="em-quote">
+      Every successful commodity market was created by solving three problems <em>in sequence</em>.
+    </blockquote>
+    <div class="em-quote-attr">PNSol &amp; Deloitte · APC pitch · April 2026</div>
+  </section>
+
+  <!-- Section 06A — Three Barriers / Three Capabilities -->
+  <div class="em-section-head">
+    <div class="l">
+      <div class="num"><span class="ord">§ 06 / 01</span>06A</div>
+      <h2>The structure<br>of the gap.<span class="sub">Three barriers, three capabilities. Each capability collapses one barrier.</span></h2>
+    </div>
+    <div class="meta">
+      <div>Barriers · <strong>03</strong></div>
+      <div>Capabilities · <strong>03</strong></div>
+    </div>
+  </div>
+
+  <section class="em-duo">
+    <!-- LEFT: Three Barriers -->
+    <div>
+      <div class="em-col-tag barrier">The Three Barriers</div>
+      <h3 class="em-col-head">Why ephemeral resources have never had real markets.</h3>
+
+      <div class="em-item" style="--c: var(--em-ember);">
+        <div class="em-item-num">01</div>
+        <div>
+          <div class="em-item-title">No fungibility</div>
+          <p class="em-item-desc">Without a standard unit of capacity or quality, two outwardly-identical providers can deliver the same task at <strong>cost spreads of 100&times;</strong>. Buyers cannot compare. Markets cannot form.</p>
+          <div class="em-item-tag">Cost variance · 100&times;</div>
+        </div>
+      </div>
+
+      <div class="em-item" style="--c: var(--em-ember);">
+        <div class="em-item-num">02</div>
+        <div>
+          <div class="em-item-title">No price discovery</div>
+          <p class="em-item-desc">Every enterprise contract is a bespoke negotiation. <strong>No spot index, no published curve, no benchmark</strong>. CFOs cannot budget. Procurement cannot scale. Capital allocation flies blind.</p>
+          <div class="em-item-tag">Bespoke deals · 100%</div>
+        </div>
+      </div>
+
+      <div class="em-item" style="--c: var(--em-ember);">
+        <div class="em-item-num">03</div>
+        <div>
+          <div class="em-item-title">No hedging</div>
+          <p class="em-item-desc">No mechanism to lock in future capacity at a known price. The single largest barrier to enterprise adoption — and, structurally, <strong>the gating step before any market matures</strong> from spot trading to real depth.</p>
+          <div class="em-item-tag">Forward depth · &lt; 2yr</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: Three Capabilities -->
+    <div>
+      <div class="em-col-tag capability">The Three Capabilities</div>
+      <h3 class="em-col-head">What unlocks the market — once, and across all three commodities.</h3>
+
+      <div class="em-item" style="--c: var(--em-emerald);">
+        <div class="em-item-num">A</div>
+        <div>
+          <div class="em-item-title">Pricing framework</div>
+          <p class="em-item-desc">Quality-graded capacity instruments — APU&#8209;1 through APU&#8209;5 — issued as <strong>tokenized entitlements on the UTXO side</strong> (Prime &amp; Vector). One unit, five grades, one settlement standard.</p>
+          <div class="em-item-tag">Issuance · UTXO</div>
+        </div>
+      </div>
+
+      <div class="em-item" style="--c: var(--em-emerald);">
+        <div class="em-item-num">B</div>
+        <div>
+          <div class="em-item-title">Measurement engine</div>
+          <p class="em-item-desc">PNSol's <strong>&Delta;Q quality attenuation framework</strong> grounds the unit empirically — observed quality vs. contracted quality, on-chain reputation per supplier. No self-reporting; results live on a neutral ledger.</p>
+          <div class="em-item-tag">&Delta;Q · on-chain rep</div>
+        </div>
+      </div>
+
+      <div class="em-item" style="--c: var(--em-emerald);">
+        <div class="em-item-num">C</div>
+        <div>
+          <div class="em-item-title">Enterprise adoption</div>
+          <p class="em-item-desc">Spot exchange, forward curve, and hedging contracts on <strong>Nexus EVM L2</strong>. Standard derivatives shape that procurement teams already understand — graded supply meets graded demand.</p>
+          <div class="em-item-tag">Exchange · EVM</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Section 06B — Three Verticals -->
+  <div class="em-section-head">
+    <div class="l">
+      <div class="num"><span class="ord">§ 06 / 02</span>06B</div>
+      <h2>One framework,<br>three commodities.<span class="sub">The same three barriers, three commodities away from real markets — sequenced by where the door is open first.</span></h2>
+    </div>
+    <div class="meta">
+      <div>Verticals · <strong>03</strong></div>
+      <div>Status · <strong>Active</strong></div>
+    </div>
+  </div>
+
+  <article class="em-vertical" style="--c: var(--em-azure);">
+    <div class="em-v-meta">
+      <span class="em-v-num">M.01 · CONNECTIVITY</span>
+      <h3 class="em-v-name">5G slicing<br>&amp; bandwidth.</h3>
+      <div class="em-v-tag">Where the framework is already proven.</div>
+      <p class="em-v-lede">PNSol's &Delta;Q is native to telecom — the framework was built with BT and Vodafone, and the same statistical machinery <strong>tuned Cardano's Ouroboros consensus</strong>, the protocol family securing Apex Fusion's Prime chain. Network slicing is bespoke today, with 65+ commercial slice offerings and no fungibility across operators. The MEF is publicly working on multi-operator interoperability. The opening is now.</p>
+      <ul class="em-v-points">
+        <li><span class="point-num">SIGNAL</span><span><strong>65+ commercial slices</strong> announced by operators; enterprise trials in the hundreds across manufacturing, healthcare, transport.</span></li>
+        <li><span class="point-num">UNIT</span><span>Latency tier (1/10/50&nbsp;ms), bandwidth band, isolation guarantee, locality. Maps cleanly onto APU-style grades.</span></li>
+        <li><span class="point-num">EDGE</span><span>Vodafone is already a PNSol partner. The credibility ladder is one rung, not five.</span></li>
+      </ul>
+      <div class="em-v-chips"><span class="em-v-chip">5G SA</span><span class="em-v-chip">MEF</span><span class="em-v-chip">&Delta;Q</span></div>
+    </div>
+    <div class="em-v-art">
+      <span class="corner tl"></span><span class="corner tr"></span>
+      <span class="corner bl"></span><span class="corner br"></span>
+      <div class="label">FIG. 06.01 · SLICE · TIERS</div>
+      <svg viewBox="0 0 400 380" preserveAspectRatio="xMidYMid meet">
+        <defs>
+          <pattern id="emGrid01" width="20" height="20" patternUnits="userSpaceOnUse">
+            <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#1A3026" stroke-width="0.5"/>
+          </pattern>
+        </defs>
+        <rect width="400" height="380" fill="url(#emGrid01)"/>
+
+        <!-- Slice tiers visualization: 5 horizontal bands -->
+        <g transform="translate(60 80)">
+          <text y="-12" font-family="JetBrains Mono" font-size="9" fill="#7A9285" letter-spacing="1.5">SLICE TIERS · LATENCY</text>
+
+          <g transform="translate(0 0)">
+            <rect width="280" height="32" fill="#1B5C8A" fill-opacity="0.18" stroke="#8DC5ED" stroke-width="1"/>
+            <text x="14" y="20" font-family="JetBrains Mono" font-size="10" font-weight="600" fill="#8DC5ED" letter-spacing="1.5">APU&#8209;1 · uRLLC</text>
+            <text x="266" y="20" text-anchor="end" font-family="JetBrains Mono" font-size="9" fill="#8DC5ED">1ms</text>
+          </g>
+          <g transform="translate(0 42)">
+            <rect width="280" height="32" fill="#1B5C8A" fill-opacity="0.14" stroke="#5BA8E0" stroke-width="1"/>
+            <text x="14" y="20" font-family="JetBrains Mono" font-size="10" font-weight="600" fill="#5BA8E0" letter-spacing="1.5">APU&#8209;2 · eMBB+</text>
+            <text x="266" y="20" text-anchor="end" font-family="JetBrains Mono" font-size="9" fill="#5BA8E0">10ms</text>
+          </g>
+          <g transform="translate(0 84)">
+            <rect width="280" height="32" fill="#1B5C8A" fill-opacity="0.10" stroke="#5BA8E0" stroke-width="1" stroke-opacity="0.7"/>
+            <text x="14" y="20" font-family="JetBrains Mono" font-size="10" font-weight="600" fill="#5BA8E0" letter-spacing="1.5">APU&#8209;3 · eMBB</text>
+            <text x="266" y="20" text-anchor="end" font-family="JetBrains Mono" font-size="9" fill="#5BA8E0">20ms</text>
+          </g>
+          <g transform="translate(0 126)">
+            <rect width="280" height="32" fill="#1B5C8A" fill-opacity="0.07" stroke="#5BA8E0" stroke-width="1" stroke-opacity="0.5"/>
+            <text x="14" y="20" font-family="JetBrains Mono" font-size="10" font-weight="600" fill="#5BA8E0" letter-spacing="1.5" fill-opacity="0.8">APU&#8209;4 · mMTC</text>
+            <text x="266" y="20" text-anchor="end" font-family="JetBrains Mono" font-size="9" fill="#5BA8E0" fill-opacity="0.8">30ms</text>
+          </g>
+          <g transform="translate(0 168)">
+            <rect width="280" height="32" fill="#1B5C8A" fill-opacity="0.05" stroke="#5BA8E0" stroke-width="1" stroke-opacity="0.3"/>
+            <text x="14" y="20" font-family="JetBrains Mono" font-size="10" font-weight="600" fill="#5BA8E0" letter-spacing="1.5" fill-opacity="0.6">APU&#8209;5 · best-effort</text>
+            <text x="266" y="20" text-anchor="end" font-family="JetBrains Mono" font-size="9" fill="#5BA8E0" fill-opacity="0.6">50ms</text>
+          </g>
+        </g>
+
+        <!-- Bottom: ΔQ measurement strip -->
+        <g transform="translate(60 320)">
+          <text y="-12" font-family="JetBrains Mono" font-size="9" fill="#7A9285" letter-spacing="1.5">&Delta;Q · OBSERVED</text>
+          <line x1="0" y1="0" x2="280" y2="0" stroke="#243F33" stroke-width="1"/>
+          <g fill="#7FD5A1">
+            <circle cx="20" cy="0" r="2.5"/>
+            <circle cx="48" cy="-3" r="2.5"/>
+            <circle cx="76" cy="2" r="2.5"/>
+            <circle cx="104" cy="-1" r="2.5"/>
+            <circle cx="132" cy="-4" r="2.5"/>
+            <circle cx="160" cy="1" r="2.5"/>
+            <circle cx="188" cy="-2" r="2.5"/>
+            <circle cx="216" cy="0" r="2.5"/>
+            <circle cx="244" cy="-3" r="2.5"/>
+            <circle cx="272" cy="-1" r="2.5"/>
+          </g>
+          <path d="M 20 0 Q 76 -3 132 -2 T 244 -2" fill="none" stroke="#7FD5A1" stroke-width="1" opacity="0.5"/>
+          <text x="280" y="3" text-anchor="end" font-family="JetBrains Mono" font-size="8" fill="#7FD5A1">PASS</text>
+        </g>
+      </svg>
+      <div class="stat-overlay"><span><strong>5</strong> grades</span><span><strong>&Delta;Q</strong> live</span><span><strong>MEF</strong> aligned</span></div>
+    </div>
+  </article>
+
+  <article class="em-vertical" style="--c: var(--em-emerald);">
+    <div class="em-v-meta">
+      <span class="em-v-num">M.02 · COMPUTE</span>
+      <h3 class="em-v-name">Agentic<br>processing.</h3>
+      <div class="em-v-tag">The largest greenfield commodity of the next decade.</div>
+      <p class="em-v-lede">Agentic AI capacity is in the structural position telecom bandwidth held in the early 2000s — real, scaling, and entirely bespoke. Hyperscaler dependence is the dominant procurement story. <strong>Tokenized APUs on the UTXO side, traded on Nexus EVM L2</strong>, with on-chain reputation per provider give enterprises a credible multi-provider strategy — and Deloitte's AI&amp;D clients a way to budget what they currently can't.</p>
+      <ul class="em-v-points">
+        <li><span class="point-num">SIGNAL</span><span>Enterprise CFOs treat agentic spend as <strong>unbudgetable variable cost</strong>; ~3 hyperscalers concentrate supply.</span></li>
+        <li><span class="point-num">UNIT</span><span>APU-1 through APU-5 by latency, throughput, and quality grade. QTAs define delivered vs. contracted quality.</span></li>
+        <li><span class="point-num">EDGE</span><span>Apex Fusion's <strong>FINMA classification + MiCA-ready posture</strong> answers the regulatory question hyperscalers cannot.</span></li>
+      </ul>
+      <div class="em-v-chips"><span class="em-v-chip">APU 1–5</span><span class="em-v-chip">QTA</span><span class="em-v-chip">FINMA</span></div>
+    </div>
+    <div class="em-v-art">
+      <span class="corner tl"></span><span class="corner tr"></span>
+      <span class="corner bl"></span><span class="corner br"></span>
+      <div class="label">FIG. 06.02 · APU · EXCHANGE</div>
+      <svg viewBox="0 0 400 380" preserveAspectRatio="xMidYMid meet">
+        <defs>
+          <pattern id="emGrid02" width="20" height="20" patternUnits="userSpaceOnUse">
+            <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#1A3026" stroke-width="0.5"/>
+          </pattern>
+        </defs>
+        <rect width="400" height="380" fill="url(#emGrid02)"/>
+
+        <!-- Order book visual: bid/ask ladder -->
+        <g transform="translate(60 70)">
+          <text y="-12" font-family="JetBrains Mono" font-size="9" fill="#7A9285" letter-spacing="1.5">APU&#8209;3 · ORDER BOOK</text>
+
+          <!-- Asks (top) -->
+          <g font-family="JetBrains Mono" font-size="9">
+            <g transform="translate(0 0)">
+              <rect width="120" height="14" x="0" fill="#9A2E1E" fill-opacity="0.12"/>
+              <text x="6" y="10" fill="#F08A66">$0.0124</text>
+              <text x="190" y="10" text-anchor="end" fill="#F08A66">2,400</text>
+            </g>
+            <g transform="translate(0 18)">
+              <rect width="160" height="14" x="0" fill="#9A2E1E" fill-opacity="0.18"/>
+              <text x="6" y="10" fill="#F08A66">$0.0123</text>
+              <text x="190" y="10" text-anchor="end" fill="#F08A66">3,800</text>
+            </g>
+            <g transform="translate(0 36)">
+              <rect width="100" height="14" x="0" fill="#9A2E1E" fill-opacity="0.10"/>
+              <text x="6" y="10" fill="#F08A66">$0.0122</text>
+              <text x="190" y="10" text-anchor="end" fill="#F08A66">1,900</text>
+            </g>
+          </g>
+
+          <!-- Spread -->
+          <g transform="translate(0 60)">
+            <line x1="0" y1="0" x2="200" y2="0" stroke="#FFE0B8" stroke-width="0.6" stroke-dasharray="3 3"/>
+            <text x="100" y="-3" text-anchor="middle" font-family="JetBrains Mono" font-size="8" fill="#FFE0B8" letter-spacing="2">$0.0121 · MID</text>
+          </g>
+
+          <!-- Bids (bottom) -->
+          <g font-family="JetBrains Mono" font-size="9">
+            <g transform="translate(0 70)">
+              <rect width="140" height="14" x="0" fill="#1F7A4C" fill-opacity="0.18"/>
+              <text x="6" y="10" fill="#7FD5A1">$0.0120</text>
+              <text x="190" y="10" text-anchor="end" fill="#7FD5A1">3,200</text>
+            </g>
+            <g transform="translate(0 88)">
+              <rect width="170" height="14" x="0" fill="#1F7A4C" fill-opacity="0.20"/>
+              <text x="6" y="10" fill="#7FD5A1">$0.0119</text>
+              <text x="190" y="10" text-anchor="end" fill="#7FD5A1">4,600</text>
+            </g>
+            <g transform="translate(0 106)">
+              <rect width="90" height="14" x="0" fill="#1F7A4C" fill-opacity="0.12"/>
+              <text x="6" y="10" fill="#7FD5A1">$0.0118</text>
+              <text x="190" y="10" text-anchor="end" fill="#7FD5A1">1,500</text>
+            </g>
+          </g>
+        </g>
+
+        <!-- Forward curve preview -->
+        <g transform="translate(60 230)">
+          <text y="-12" font-family="JetBrains Mono" font-size="9" fill="#7A9285" letter-spacing="1.5">FORWARD CURVE · 12M</text>
+          <line x1="0" y1="60" x2="280" y2="60" stroke="#243F33" stroke-width="1"/>
+          <line x1="0" y1="0" x2="0" y2="60" stroke="#243F33" stroke-width="1"/>
+
+          <!-- forward curve as ascending dashed line -->
+          <path d="M 0 50 L 30 48 L 60 46 L 90 44 L 120 41 L 150 38 L 180 35 L 210 32 L 240 30 L 270 28" fill="none" stroke="#7FD5A1" stroke-width="1.5" stroke-dasharray="4 3"/>
+
+          <!-- expiry markers -->
+          <g fill="#FFE0B8">
+            <circle cx="0" cy="50" r="2.5"/>
+            <circle cx="90" cy="44" r="2.5"/>
+            <circle cx="180" cy="35" r="2.5"/>
+            <circle cx="270" cy="28" r="2.5"/>
+          </g>
+
+          <g font-family="JetBrains Mono" font-size="8" fill="#7A9285" letter-spacing="1">
+            <text x="0" y="74">SPOT</text>
+            <text x="90" y="74" text-anchor="middle">+3M</text>
+            <text x="180" y="74" text-anchor="middle">+6M</text>
+            <text x="270" y="74" text-anchor="end">+12M</text>
+          </g>
+        </g>
+      </svg>
+      <div class="stat-overlay"><span><strong>SPOT</strong> live</span><span><strong>FWD</strong> 12M</span><span><strong>NEXUS</strong> EVM</span></div>
+    </div>
+  </article>
+
+  <article class="em-vertical" style="--c: var(--em-ignition);">
+    <div class="em-v-meta">
+      <span class="em-v-num">M.03 · ENERGY</span>
+      <h3 class="em-v-name">Grid<br>flexibility.</h3>
+      <div class="em-v-tag">A regulatory window opening on a fixed clock.</div>
+      <p class="em-v-lede">Bulk wholesale power is solved. The unsolved layer is <strong>distributed flexibility, DER aggregation, and cross-border renewable attribution</strong> — where every existing market is jurisdictionally siloed or quality-blind. ACER's Network Code on Demand Response (2027), forward market reform under EC review, and national flexibility objectives due Dec 2026 converge on exactly the gap PNSol's framework closes.</p>
+      <ul class="em-v-points">
+        <li><span class="point-num">SIGNAL</span><span>EU forward markets are <strong>shallow beyond 2 years</strong>; 30+ siloed REC/GO registries; ACER explicitly seeking standardization.</span></li>
+        <li><span class="point-num">UNIT</span><span>ESU grades by response time, duration, locality, carbon attribute. QTAs translate flexibility commitments into auditable instruments.</span></li>
+        <li><span class="point-num">EDGE</span><span>Apex Fusion's <strong>EU/Swiss compliance posture</strong> is a prerequisite, not a feature, for cross-border tokenized energy products.</span></li>
+      </ul>
+      <div class="em-v-chips"><span class="em-v-chip">ACER</span><span class="em-v-chip">EU MDR</span><span class="em-v-chip">GO/REC</span></div>
+    </div>
+    <div class="em-v-art">
+      <span class="corner tl"></span><span class="corner tr"></span>
+      <span class="corner bl"></span><span class="corner br"></span>
+      <div class="label">FIG. 06.03 · DER · ATTRIBUTION</div>
+      <svg viewBox="0 0 400 380" preserveAspectRatio="xMidYMid meet">
+        <defs>
+          <pattern id="emGrid03" width="20" height="20" patternUnits="userSpaceOnUse">
+            <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#1A3026" stroke-width="0.5"/>
+          </pattern>
+        </defs>
+        <rect width="400" height="380" fill="url(#emGrid03)"/>
+
+        <!-- Distributed nodes feeding into central exchange -->
+        <g>
+          <!-- Solar nodes -->
+          <g transform="translate(70 100)">
+            <circle r="14" fill="none" stroke="#F2A03C" stroke-width="1.4"/>
+            <circle r="14" fill="#F2A03C" fill-opacity="0.18"/>
+            <text y="3" text-anchor="middle" font-family="JetBrains Mono" font-size="9" font-weight="600" fill="#F2A03C">PV</text>
+            <text y="32" text-anchor="middle" font-family="JetBrains Mono" font-size="8" fill="#7A9285" letter-spacing="1">SOLAR · DE</text>
+          </g>
+          <g transform="translate(70 200)">
+            <circle r="14" fill="none" stroke="#F2A03C" stroke-width="1.4"/>
+            <circle r="14" fill="#F2A03C" fill-opacity="0.18"/>
+            <text y="3" text-anchor="middle" font-family="JetBrains Mono" font-size="9" font-weight="600" fill="#F2A03C">BAT</text>
+            <text y="32" text-anchor="middle" font-family="JetBrains Mono" font-size="8" fill="#7A9285" letter-spacing="1">BESS · UK</text>
+          </g>
+          <g transform="translate(70 300)">
+            <circle r="14" fill="none" stroke="#F2A03C" stroke-width="1.4"/>
+            <circle r="14" fill="#F2A03C" fill-opacity="0.18"/>
+            <text y="3" text-anchor="middle" font-family="JetBrains Mono" font-size="9" font-weight="600" fill="#F2A03C">V2G</text>
+            <text y="32" text-anchor="middle" font-family="JetBrains Mono" font-size="8" fill="#7A9285" letter-spacing="1">FLEET · NL</text>
+          </g>
+
+          <!-- Central aggregator -->
+          <g transform="translate(220 200)">
+            <rect x="-44" y="-30" width="88" height="60" fill="#06100C" stroke="#FFE0B8" stroke-width="1.4"/>
+            <text y="-12" text-anchor="middle" font-family="JetBrains Mono" font-size="9" font-weight="600" fill="#FFE0B8" letter-spacing="2">ESU EXCHANGE</text>
+            <line x1="-32" y1="-2" x2="32" y2="-2" stroke="#7A9285" stroke-width="0.5"/>
+            <text y="10" text-anchor="middle" font-family="JetBrains Mono" font-size="8" fill="#F2A03C" letter-spacing="1.5">&Delta;Q · QTA</text>
+            <text y="22" text-anchor="middle" font-family="JetBrains Mono" font-size="8" fill="#7A9285" letter-spacing="1.5">on Apex</text>
+          </g>
+
+          <!-- Buy side -->
+          <g transform="translate(340 100)">
+            <rect x="-26" y="-12" width="52" height="24" fill="none" stroke="#7FD5A1" stroke-width="1.2"/>
+            <rect x="-26" y="-12" width="52" height="24" fill="#1F7A4C" fill-opacity="0.18"/>
+            <text y="3" text-anchor="middle" font-family="JetBrains Mono" font-size="9" fill="#7FD5A1" letter-spacing="1.5">UTILITY</text>
+          </g>
+          <g transform="translate(340 200)">
+            <rect x="-26" y="-12" width="52" height="24" fill="none" stroke="#7FD5A1" stroke-width="1.2"/>
+            <rect x="-26" y="-12" width="52" height="24" fill="#1F7A4C" fill-opacity="0.18"/>
+            <text y="3" text-anchor="middle" font-family="JetBrains Mono" font-size="9" fill="#7FD5A1" letter-spacing="1.5">CORP PPA</text>
+          </g>
+          <g transform="translate(340 300)">
+            <rect x="-26" y="-12" width="52" height="24" fill="none" stroke="#7FD5A1" stroke-width="1.2"/>
+            <rect x="-26" y="-12" width="52" height="24" fill="#1F7A4C" fill-opacity="0.18"/>
+            <text y="3" text-anchor="middle" font-family="JetBrains Mono" font-size="9" fill="#7FD5A1" letter-spacing="1.5">DSO/TSO</text>
+          </g>
+
+          <!-- Connection lines into aggregator -->
+          <g stroke="#F2A03C" stroke-width="0.9" stroke-dasharray="4 4" fill="none" opacity="0.65">
+            <line x1="84" y1="100" x2="176" y2="190"/>
+            <line x1="84" y1="200" x2="176" y2="200"/>
+            <line x1="84" y1="300" x2="176" y2="210"/>
+          </g>
+          <!-- Connection lines out -->
+          <g stroke="#7FD5A1" stroke-width="0.9" stroke-dasharray="4 4" fill="none" opacity="0.65">
+            <line x1="264" y1="190" x2="314" y2="100"/>
+            <line x1="264" y1="200" x2="314" y2="200"/>
+            <line x1="264" y1="210" x2="314" y2="300"/>
+          </g>
+        </g>
+
+        <!-- Bottom regulatory tag -->
+        <g transform="translate(200 360)">
+          <text text-anchor="middle" font-family="JetBrains Mono" font-size="8" fill="#7A9285" letter-spacing="2">ACER · EU MDR · NETWORK CODE 2027</text>
+        </g>
+      </svg>
+      <div class="stat-overlay"><span><strong>DER</strong> graded</span><span><strong>GO</strong> unified</span><span><strong>EU</strong> aligned</span></div>
+    </div>
+  </article>
+
+  <!-- Section 06C — Apex Fusion mapping -->
+  <div class="em-section-head">
+    <div class="l">
+      <div class="num"><span class="ord">§ 06 / 03</span>06C</div>
+      <h2>Why this<br>substrate.<span class="sub">Apex Fusion's tri-chain architecture maps one-to-one onto what the framework needs.</span></h2>
+    </div>
+    <div class="meta">
+      <div>Layers · <strong>03</strong></div>
+      <div>Status · <strong>Live</strong></div>
+    </div>
+  </div>
+
+  <section class="em-stack">
+    <div class="em-stack-card" style="--c: var(--em-emerald);">
+      <div class="em-stack-num">01 · ISSUANCE</div>
+      <div class="em-stack-name">Prime &amp; Vector</div>
+      <div class="em-stack-impl">eUTXO · Asset-native · Deterministic</div>
+      <div class="em-stack-desc">Capacity instruments — APUs, ESUs, GO/REC tokens — are <strong>discrete, transferable, double-spend-resistant by construction</strong>. The UTXO model is the natural home for asset-like entitlements; deterministic fees mean budgets survive congestion.</div>
+    </div>
+    <div class="em-stack-card" style="--c: var(--em-azure);">
+      <div class="em-stack-num">02 · EXCHANGE</div>
+      <div class="em-stack-name">Nexus EVM</div>
+      <div class="em-stack-impl">Spot · Forwards · Hedging</div>
+      <div class="em-stack-desc">EVM L2 is where the <strong>order book, forward curve, and derivatives logic live</strong>. Standard tooling, standard composability, standard counterparty experience for procurement teams. Reactor bridges instruments from issuance to market.</div>
+    </div>
+    <div class="em-stack-card" style="--c: var(--em-ember);">
+      <div class="em-stack-num">03 · REPUTATION</div>
+      <div class="em-stack-name">Sigil &amp; &Delta;Q</div>
+      <div class="em-stack-impl">On-chain · Adversarial · Neutral</div>
+      <div class="em-stack-desc">Supplier reputation is a <strong>first-class on-chain object, queryable before transacting</strong>. &Delta;Q observations and QTA pass/fail records are tamper-evident. Vigil challenges keep the data honest. No self-reporting, no platform conflict of interest.</div>
+    </div>
+  </section>
+
+  <!-- Section 06D — Phased Rollout -->
+  <div class="em-section-head">
+    <div class="l">
+      <div class="num"><span class="ord">§ 06 / 04</span>06D</div>
+      <h2>Sequencing<br>the rollout.<span class="sub">Lineage first. Then the vertical with the open regulatory door. Then the headline market.</span></h2>
+    </div>
+    <div class="meta">
+      <div>Phases · <strong>04</strong></div>
+      <div>Window · <strong>2026 – 2028</strong></div>
+    </div>
+  </div>
+
+  <section class="em-phases">
+    <div class="em-phase" style="--c: var(--em-plasma);">
+      <div class="em-phase-ord">I</div>
+      <div class="em-phase-step">Phase · 01</div>
+      <div class="em-phase-name">Lineage</div>
+      <div class="em-phase-stage">Heritage</div>
+      <ul class="em-phase-points">
+        <li><strong>&Delta;Q on Ouroboros</strong>PNSol's framework already validated on the consensus protocol securing Prime.</li>
+        <li><strong>BT &amp; Vodafone</strong>Multi-decade telecom track record; no cold introductions needed.</li>
+      </ul>
+    </div>
+
+    <div class="em-phase" style="--c: var(--em-azure);">
+      <div class="em-phase-ord">II</div>
+      <div class="em-phase-step">Phase · 02</div>
+      <div class="em-phase-name">Connectivity</div>
+      <div class="em-phase-stage">First deployment</div>
+      <ul class="em-phase-points">
+        <li><strong>5G slicing pilot</strong>Graded slice instruments, &Delta;Q-attested, traded on Nexus.</li>
+        <li><strong>MEF tailwind</strong>Public push for multi-operator interoperability standards.</li>
+      </ul>
+    </div>
+
+    <div class="em-phase" style="--c: var(--em-ignition);">
+      <div class="em-phase-ord">III</div>
+      <div class="em-phase-step">Phase · 03</div>
+      <div class="em-phase-name">Energy</div>
+      <div class="em-phase-stage">Regulatory window</div>
+      <ul class="em-phase-points">
+        <li><strong>GO/REC unification</strong>Cross-border attribution layer first; lowest regulatory friction.</li>
+        <li><strong>DER reputation</strong>Aligned with ACER Network Code on Demand Response (2027).</li>
+      </ul>
+    </div>
+
+    <div class="em-phase" style="--c: var(--em-emerald);">
+      <div class="em-phase-ord">IV</div>
+      <div class="em-phase-step">Phase · 04</div>
+      <div class="em-phase-name">Compute</div>
+      <div class="em-phase-stage">Headline market</div>
+      <ul class="em-phase-points">
+        <li><strong>APU exchange</strong>Spot, forward curve, hedging contracts for agentic capacity.</li>
+        <li><strong>Multi-vertical</strong>One substrate, three commodities, one neutral ledger.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- Heritage strip -->
+  <section class="em-heritage">
+    <div class="em-heritage-eb">// Lineage · The credibility ladder</div>
+    <div class="em-heritage-strip">
+      <div class="em-heritage-item">
+        <div class="em-heritage-tag">&Delta;Q · 20+ yrs</div>
+        <div class="em-heritage-name">PNSol</div>
+        <div class="em-heritage-detail">Quality attenuation framework. BT, Vodafone, Boeing, Space &amp; Defence consultancy.</div>
+      </div>
+      <div class="em-heritage-item">
+        <div class="em-heritage-tag">Consensus</div>
+        <div class="em-heritage-name">Ouroboros</div>
+        <div class="em-heritage-detail">Cardano's PoS protocol family. ΔQSD validated against throughput targets in production.</div>
+      </div>
+      <div class="em-heritage-item">
+        <div class="em-heritage-tag">Substrate</div>
+        <div class="em-heritage-name">Apex Fusion</div>
+        <div class="em-heritage-detail">Tri-chain architecture: Prime (UTXO L1), Vector (UTXO L2), Nexus (EVM L2). Reactor bridge.</div>
+      </div>
+      <div class="em-heritage-item">
+        <div class="em-heritage-tag">Posture</div>
+        <div class="em-heritage-name">FINMA · MiCA</div>
+        <div class="em-heritage-detail">AP3X holds FINMA utility classification. EU/Swiss compliance posture for cross-border instruments.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Colophon -->
+  <footer class="em-colophon">
+    <div><span class="brand">AP3X · Fusion</span> &nbsp; · &nbsp; Ephemeral Markets · 2026 Q2</div>
+    <div class="end">
+      <span>apexfusion.org</span>
+      <span>§ 06 / End</span>
+    </div>
+  </footer>
+
+</main>`;
+
+  return e("div", { className: "section-wrap ephemeral-section" },
+    e("style", { dangerouslySetInnerHTML: { __html: css } }),
+    e("div", { dangerouslySetInnerHTML: { __html: html } })
+  );
+}
+
+
+function PositiveSumGamesSection() {
+  const e = React.createElement;
+  const css = `
+/* ============================================================
+   POSITIVE-SUM GAMES — research dossier
+   When selfishness is structural.
+   ============================================================ */
+
+/* 1. Bypass main-pad for full-width magazine layout */
+.main-pad:has(> .section-wrap.positive-sum-section) { max-width: none !important; padding: 0 !important; }
+@media (max-width: 900px) { .main-pad:has(> .section-wrap.positive-sum-section) { padding: 0 !important; } }
+
+/* 2. Containment + tokens + reset */
+.positive-sum-section {
+  position: relative;
+  isolation: isolate;
+  min-height: 100vh;
+  overflow-x: clip;
+
+  --ps-bg-0:    #0A0814;
+  --ps-bg-1:    #14111F;
+  --ps-bg-2:    #1F1A2E;
+  --ps-bg-3:    #2A2440;
+
+  --ps-ink-0:   #ECEAF4;
+  --ps-ink-1:   #C5C0DA;
+  --ps-ink-2:   #918AAB;
+  --ps-ink-3:   #65607A;
+  --ps-ink-4:   #423E55;
+
+  --ps-line:    #221E33;
+  --ps-line-2:  #322C49;
+  --ps-line-3:  #443D62;
+
+  --ps-violet:      #8B7FD5;
+  --ps-violet-soft: #ADA1ED;
+  --ps-violet-deep: #5C4FA0;
+  --ps-plasma:      #FFE0B8;
+  --ps-ignition:    #F2A03C;
+  --ps-emerald:     #4BB87A;
+  --ps-emerald-soft:#7FD5A1;
+  --ps-ember:       #E0623E;
+  --ps-ember-soft:  #F08A66;
+  --ps-azure:       #5BA8E0;
+
+  --ps-f-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --ps-f-mono:    "JetBrains Mono", ui-monospace, "SF Mono", Consolas, monospace;
+}
+
+.positive-sum-section *,
+.positive-sum-section *::before,
+.positive-sum-section *::after { box-sizing: border-box; }
+
+.positive-sum-section {
+  font-family: var(--ps-f-display);
+  color: var(--ps-ink-0);
+  background: var(--ps-bg-0);
+  -webkit-font-smoothing: antialiased;
+  line-height: 1.5;
+}
+
+/* Atmospheric backdrop */
+.positive-sum-section::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(70% 50% at 85% -5%, oklch(0.65 0.18 290 / 0.14), transparent 65%),
+    radial-gradient(60% 40% at -5% 70%, oklch(0.70 0.15 270 / 0.10), transparent 65%);
+}
+.positive-sum-section::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(to right, var(--ps-line) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--ps-line) 1px, transparent 1px);
+  background-size: 80px 80px;
+  opacity: 0.20;
+  mask-image: radial-gradient(70% 70% at 50% 30%, black, transparent 80%);
+}
+
+/* 3. Page wrapper */
+.positive-sum-section .ps-page {
+  position: relative;
+  z-index: 1;
+  max-width: 1480px;
+  margin: 0 auto;
+  padding: 32px 64px 96px;
+}
+@media (max-width: 1100px) { .positive-sum-section .ps-page { padding: 28px 40px 80px; } }
+@media (max-width: 900px)  { .positive-sum-section .ps-page { padding: 20px 20px 64px; } }
+
+/* 4. Masthead */
+.positive-sum-section .ps-mast {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 18px 0;
+  border-top: 1px solid var(--ps-line-2);
+  border-bottom: 1px solid var(--ps-line-2);
+  font-family: var(--ps-f-mono);
+  font-size: 10px; letter-spacing: 0.28em;
+  text-transform: uppercase; color: var(--ps-ink-3);
+}
+.positive-sum-section .ps-mast-l { display: flex; gap: 28px; flex-wrap: wrap; }
+.positive-sum-section .ps-mast-brand { color: var(--ps-violet-soft); font-weight: 600; }
+.positive-sum-section .ps-mast-live { color: var(--ps-plasma); display: inline-flex; align-items: center; gap: 8px; }
+.positive-sum-section .ps-mast-live::before {
+  content: ''; width: 6px; height: 6px; border-radius: 50%;
+  background: var(--ps-plasma);
+  box-shadow: 0 0 10px var(--ps-plasma);
+  animation: ps-pulse 1.8s ease-in-out infinite;
+}
+@keyframes ps-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+/* 5. Hero */
+.positive-sum-section .ps-hero {
+  display: grid;
+  grid-template-columns: 1.25fr 1fr;
+  gap: 80px;
+  align-items: center;
+  padding: 100px 0 96px;
+  border-bottom: 1px solid var(--ps-line-2);
+}
+@media (max-width: 1100px) {
+  .positive-sum-section .ps-hero {
+    grid-template-columns: 1fr; gap: 56px;
+    padding: 72px 0 64px;
+  }
+}
+
+.positive-sum-section .ps-eyebrow {
+  font-family: var(--ps-f-mono);
+  font-size: 11px; letter-spacing: 0.32em; text-transform: uppercase;
+  color: var(--ps-violet-soft);
+  margin-bottom: 36px;
+  display: inline-flex; align-items: center; gap: 14px;
+}
+.positive-sum-section .ps-eyebrow::before {
+  content: ''; width: 32px; height: 1px; background: var(--ps-violet-soft);
+}
+
+.positive-sum-section .ps-hero h1 {
+  font-family: var(--ps-f-display);
+  font-weight: 500;
+  font-size: clamp(52px, 8.4vw, 124px);
+  line-height: 0.92;
+  letter-spacing: -0.045em;
+  margin: 0;
+  color: var(--ps-ink-0);
+  text-wrap: balance;
+}
+.positive-sum-section .ps-hero h1 em {
+  font-style: italic; font-weight: 300;
+  color: var(--ps-plasma);
+}
+
+.positive-sum-section .ps-hero .lede {
+  margin-top: 36px; max-width: 56ch;
+  font-size: 18px; line-height: 1.6;
+  color: var(--ps-ink-1);
+}
+.positive-sum-section .ps-hero .lede strong { color: var(--ps-ink-0); font-weight: 500; }
+.positive-sum-section .ps-hero .lede .term { color: var(--ps-violet-soft); font-weight: 500; }
+
+.positive-sum-section .ps-hero-pills {
+  margin-top: 40px;
+  display: flex; flex-wrap: wrap; gap: 10px;
+}
+.positive-sum-section .ps-hero-pill {
+  font-family: var(--ps-f-mono);
+  font-size: 10.5px; letter-spacing: 0.16em; text-transform: uppercase;
+  color: var(--ps-ink-1);
+  padding: 9px 14px;
+  border: 1px solid var(--ps-line-2);
+  background: color-mix(in oklch, var(--ps-bg-1) 60%, transparent);
+}
+.positive-sum-section .ps-hero-pill strong {
+  color: var(--ps-violet-soft);
+  font-weight: 600;
+  margin-right: 6px;
+}
+
+/* Hero diagram */
+.positive-sum-section .ps-hero-art {
+  position: relative;
+  aspect-ratio: 1;
+  border: 1px solid var(--ps-line-2);
+  background: linear-gradient(160deg, var(--ps-bg-1), var(--ps-bg-0));
+  overflow: hidden;
+}
+.positive-sum-section .ps-hero-art > .corner {
+  position: absolute; width: 14px; height: 14px;
+  border: 1px solid var(--ps-violet);
+}
+.positive-sum-section .ps-hero-art > .corner.tl { top: -1px; left: -1px; border-right: none; border-bottom: none; }
+.positive-sum-section .ps-hero-art > .corner.tr { top: -1px; right: -1px; border-left: none; border-bottom: none; }
+.positive-sum-section .ps-hero-art > .corner.bl { bottom: -1px; left: -1px; border-right: none; border-top: none; }
+.positive-sum-section .ps-hero-art > .corner.br { bottom: -1px; right: -1px; border-left: none; border-top: none; }
+.positive-sum-section .ps-hero-art .label {
+  position: absolute; top: 18px; left: 22px;
+  font-family: var(--ps-f-mono);
+  font-size: 9.5px; letter-spacing: 0.28em; text-transform: uppercase;
+  color: var(--ps-ink-3);
+}
+.positive-sum-section .ps-hero-art .stat-overlay {
+  position: absolute; bottom: 18px; left: 22px; right: 22px;
+  display: flex; justify-content: space-between;
+  font-family: var(--ps-f-mono);
+  font-size: 9.5px; letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--ps-ink-2);
+}
+.positive-sum-section .ps-hero-art .stat-overlay strong {
+  color: var(--ps-plasma); font-weight: 500;
+}
+.positive-sum-section .ps-hero-art svg {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+}
+
+/* Pull-quote block */
+.positive-sum-section .ps-quote-block {
+  padding: 96px 0;
+  border-bottom: 1px solid var(--ps-line-2);
+}
+@media (max-width: 1100px) { .positive-sum-section .ps-quote-block { padding: 64px 0; } }
+
+.positive-sum-section .ps-quote {
+  margin: 0;
+  font-family: var(--ps-f-display);
+  font-weight: 400;
+  font-size: clamp(32px, 4.4vw, 64px);
+  line-height: 1.05;
+  letter-spacing: -0.028em;
+  color: var(--ps-ink-0);
+  max-width: 22ch;
+}
+.positive-sum-section .ps-quote em {
+  font-style: italic; font-weight: 300;
+  color: var(--ps-plasma);
+}
+.positive-sum-section .ps-quote-attr {
+  margin-top: 32px;
+  font-family: var(--ps-f-mono);
+  font-size: 10px; letter-spacing: 0.28em; text-transform: uppercase;
+  color: var(--ps-ink-3);
+  display: inline-flex; align-items: center; gap: 14px;
+}
+.positive-sum-section .ps-quote-attr::before {
+  content: ''; width: 28px; height: 1px; background: var(--ps-ink-3);
+}
+
+/* Section heads */
+.positive-sum-section .ps-section-head {
+  padding: 80px 0 48px;
+  display: flex; align-items: flex-end; justify-content: space-between;
+  gap: 40px; flex-wrap: wrap;
+  border-bottom: 1px solid var(--ps-line);
+}
+.positive-sum-section .ps-section-head .l { display: flex; align-items: baseline; gap: 28px; }
+.positive-sum-section .ps-section-head .num {
+  font-family: var(--ps-f-display); font-weight: 300;
+  font-size: 88px; line-height: 0.85;
+  letter-spacing: -0.04em;
+  color: var(--ps-violet-soft);
+  opacity: 0.9;
+  flex-shrink: 0;
+}
+.positive-sum-section .ps-section-head .num .ord {
+  font-family: var(--ps-f-mono);
+  font-size: 10.5px; letter-spacing: 0.28em;
+  color: var(--ps-violet-soft);
+  display: block; margin-bottom: 8px; opacity: 1;
+}
+.positive-sum-section .ps-section-head h2 {
+  font-family: var(--ps-f-display); font-weight: 500;
+  font-size: clamp(32px, 4vw, 52px);
+  letter-spacing: -0.03em; line-height: 1;
+  margin: 0; color: var(--ps-ink-0);
+}
+.positive-sum-section .ps-section-head h2 .sub {
+  display: block; font-weight: 300;
+  font-size: 0.55em;
+  color: var(--ps-ink-2);
+  margin-top: 14px;
+  letter-spacing: -0.02em;
+}
+.positive-sum-section .ps-section-head .meta {
+  font-family: var(--ps-f-mono);
+  font-size: 10.5px; letter-spacing: 0.22em; text-transform: uppercase;
+  color: var(--ps-ink-3);
+  text-align: right; line-height: 1.8;
+}
+.positive-sum-section .ps-section-head .meta strong { color: var(--ps-plasma); font-weight: 500; }
+
+/* Criteria — 5-card row */
+.positive-sum-section .ps-criteria {
+  padding: 48px 0 64px;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 16px;
+  border-bottom: 1px solid var(--ps-line);
+}
+@media (max-width: 1200px) {
+  .positive-sum-section .ps-criteria { grid-template-columns: repeat(2, 1fr); gap: 20px; }
+}
+@media (max-width: 600px) {
+  .positive-sum-section .ps-criteria { grid-template-columns: 1fr; }
+}
+.positive-sum-section .ps-crit {
+  position: relative;
+  border: 1px solid var(--ps-line);
+  background: linear-gradient(180deg, color-mix(in oklch, var(--ps-bg-1) 80%, transparent), var(--ps-bg-0));
+  padding: 28px 22px 26px;
+  min-height: 220px;
+  display: flex; flex-direction: column;
+  transition: border-color .3s, transform .3s;
+}
+.positive-sum-section .ps-crit:hover {
+  border-color: var(--ps-line-2);
+  transform: translateY(-2px);
+}
+.positive-sum-section .ps-crit::before {
+  content: '';
+  position: absolute; top: 0; left: 0;
+  width: 32px; height: 2px;
+  background: var(--ps-violet);
+  box-shadow: 0 0 10px var(--ps-violet);
+}
+.positive-sum-section .ps-crit-num {
+  font-family: var(--ps-f-display); font-weight: 300;
+  font-size: 38px; line-height: 0.85;
+  letter-spacing: -0.04em;
+  color: var(--ps-violet-soft); opacity: 0.6;
+  margin-bottom: 16px;
+}
+.positive-sum-section .ps-crit-name {
+  font-family: var(--ps-f-display); font-weight: 500;
+  font-size: 17px; letter-spacing: -0.018em;
+  color: var(--ps-ink-0); line-height: 1.2;
+  margin-bottom: 12px;
+}
+.positive-sum-section .ps-crit-desc {
+  font-size: 13px; line-height: 1.6;
+  color: var(--ps-ink-2);
+  margin: 0; margin-top: auto;
+}
+
+/* Player types — 3-card grid */
+.positive-sum-section .ps-players {
+  padding: 48px 0 64px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+  border-bottom: 1px solid var(--ps-line);
+}
+@media (max-width: 1100px) {
+  .positive-sum-section .ps-players { grid-template-columns: 1fr; }
+}
+.positive-sum-section .ps-player {
+  position: relative;
+  border: 1px solid var(--ps-line);
+  background: linear-gradient(180deg, color-mix(in oklch, var(--ps-bg-1) 80%, transparent), var(--ps-bg-0));
+  padding: 36px 28px 32px;
+  min-height: 320px;
+  display: flex; flex-direction: column;
+}
+.positive-sum-section .ps-player::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  background: var(--c);
+  box-shadow: 0 0 12px var(--c);
+}
+.positive-sum-section .ps-player-tag {
+  font-family: var(--ps-f-mono);
+  font-size: 10px; letter-spacing: 0.28em;
+  text-transform: uppercase; color: var(--c);
+  margin-bottom: 24px;
+}
+.positive-sum-section .ps-player-glyph {
+  margin-bottom: 24px;
+  display: flex; gap: 4px; align-items: center;
+}
+.positive-sum-section .ps-player-glyph .dot {
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  background: var(--c);
+  opacity: 0.9;
+}
+.positive-sum-section .ps-player-glyph .dot.muted {
+  background: transparent;
+  border: 1px solid var(--c);
+  opacity: 0.5;
+}
+.positive-sum-section .ps-player-glyph .dot.faint {
+  background: transparent;
+  border: 1px dashed var(--c);
+  opacity: 0.3;
+}
+.positive-sum-section .ps-player-name {
+  font-family: var(--ps-f-display); font-weight: 500;
+  font-size: 26px; letter-spacing: -0.025em;
+  line-height: 1.05; color: var(--ps-ink-0);
+  margin-bottom: 12px;
+}
+.positive-sum-section .ps-player-tagline {
+  font-family: var(--ps-f-mono);
+  font-size: 10.5px; letter-spacing: 0.16em;
+  color: var(--c); text-transform: uppercase;
+  margin-bottom: 20px;
+}
+.positive-sum-section .ps-player-desc {
+  font-size: 14px; line-height: 1.65;
+  color: var(--ps-ink-1);
+  margin-bottom: 20px;
+}
+.positive-sum-section .ps-player-desc strong { color: var(--ps-ink-0); font-weight: 500; }
+.positive-sum-section .ps-player-traits {
+  margin-top: auto;
+  padding-top: 18px;
+  border-top: 1px solid var(--ps-line);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 16px;
+  font-family: var(--ps-f-mono);
+  font-size: 9.5px; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--ps-ink-2);
+}
+.positive-sum-section .ps-player-traits .label { color: var(--ps-ink-3); }
+.positive-sum-section .ps-player-traits .val { color: var(--c); }
+
+/* Stack architecture — 4-column visual */
+.positive-sum-section .ps-stacks {
+  padding: 48px 0 64px;
+  border-bottom: 1px solid var(--ps-line);
+}
+.positive-sum-section .ps-stacks-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+@media (max-width: 1100px) {
+  .positive-sum-section .ps-stacks-grid { grid-template-columns: repeat(2, 1fr); gap: 24px; }
+}
+@media (max-width: 600px) {
+  .positive-sum-section .ps-stacks-grid { grid-template-columns: 1fr; }
+}
+.positive-sum-section .ps-stack {
+  position: relative;
+  border: 1px solid var(--ps-line);
+  background: linear-gradient(180deg, color-mix(in oklch, var(--ps-bg-1) 70%, transparent), var(--ps-bg-0));
+  padding: 28px 24px;
+}
+.positive-sum-section .ps-stack::before {
+  content: '';
+  position: absolute; top: 0; left: 0; bottom: 0; width: 2px;
+  background: var(--c);
+  box-shadow: 0 0 10px var(--c);
+}
+.positive-sum-section .ps-stack-tag {
+  font-family: var(--ps-f-mono);
+  font-size: 9.5px; letter-spacing: 0.28em;
+  text-transform: uppercase; color: var(--c);
+  margin-bottom: 16px;
+}
+.positive-sum-section .ps-stack-name {
+  font-family: var(--ps-f-display); font-weight: 500;
+  font-size: 22px; letter-spacing: -0.022em;
+  line-height: 1.05; color: var(--ps-ink-0);
+  margin-bottom: 8px;
+}
+.positive-sum-section .ps-stack-role {
+  font-family: var(--ps-f-mono);
+  font-size: 10.5px; letter-spacing: 0.06em;
+  color: var(--c);
+  margin-bottom: 18px; line-height: 1.5;
+}
+.positive-sum-section .ps-stack-desc {
+  font-size: 13px; line-height: 1.6;
+  color: var(--ps-ink-2);
+  margin-bottom: 22px;
+  border-bottom: 1px solid var(--ps-line);
+  padding-bottom: 22px;
+}
+.positive-sum-section .ps-stack-games {
+  list-style: none; margin: 0; padding: 0;
+}
+.positive-sum-section .ps-stack-games li {
+  display: flex; justify-content: space-between; align-items: baseline;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--ps-line);
+  font-size: 13px;
+}
+.positive-sum-section .ps-stack-games li:last-child { border-bottom: none; }
+.positive-sum-section .ps-stack-games .name {
+  font-family: var(--ps-f-display); font-weight: 500;
+  color: var(--ps-ink-0);
+}
+.positive-sum-section .ps-stack-games .role {
+  font-family: var(--ps-f-mono);
+  font-size: 9.5px; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--ps-ink-3);
+}
+.positive-sum-section .ps-stack-games li.priority .name { color: var(--ps-plasma); }
+.positive-sum-section .ps-stack-games li.priority .role { color: var(--ps-ember); }
+.positive-sum-section .ps-stack-games li.priority .name::before {
+  content: '★'; margin-right: 8px;
+  color: var(--ps-plasma); font-size: 10px;
+}
+
+/* Game cards — full grid of 14 */
+.positive-sum-section .ps-games {
+  padding: 48px 0 64px;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1px;
+  background: var(--ps-line);
+  border: 1px solid var(--ps-line-2);
+  border-bottom: none;
+}
+@media (max-width: 900px) {
+  .positive-sum-section .ps-games { grid-template-columns: 1fr; }
+}
+.positive-sum-section .ps-game {
+  position: relative;
+  background: var(--ps-bg-1);
+  padding: 36px 32px 32px;
+  display: flex; flex-direction: column;
+  gap: 12px;
+  min-height: 280px;
+  transition: background .25s;
+}
+.positive-sum-section .ps-game:hover {
+  background: color-mix(in oklch, var(--ps-bg-1) 80%, var(--ps-bg-2));
+}
+.positive-sum-section .ps-game-head {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 4px;
+}
+.positive-sum-section .ps-game-mark {
+  font-family: var(--ps-f-display);
+  font-weight: 600;
+  font-size: 38px;
+  line-height: 0.85;
+  letter-spacing: -0.04em;
+  color: var(--c, var(--ps-violet-soft));
+}
+.positive-sum-section .ps-game-mark .num {
+  font-size: 0.42em; font-weight: 400;
+  letter-spacing: 0.1em;
+  vertical-align: top;
+  color: var(--ps-ink-3);
+  margin-left: 6px;
+}
+.positive-sum-section .ps-game-status {
+  font-family: var(--ps-f-mono);
+  font-size: 9px; letter-spacing: 0.2em; text-transform: uppercase;
+  color: var(--ps-ink-2);
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 9px;
+  border: 1px solid var(--ps-line-2);
+  white-space: nowrap;
+}
+.positive-sum-section .ps-game-status.priority {
+  color: var(--ps-plasma);
+  border-color: color-mix(in oklch, var(--ps-plasma) 50%, transparent);
+  background: color-mix(in oklch, var(--ps-plasma) 6%, transparent);
+}
+.positive-sum-section .ps-game-status.priority::before {
+  content: '★'; font-size: 9px; color: var(--ps-plasma);
+}
+.positive-sum-section .ps-game-status.keystone { color: var(--ps-emerald); border-color: color-mix(in oklch, var(--ps-emerald) 40%, transparent); }
+.positive-sum-section .ps-game-status.meridian { color: var(--ps-azure); border-color: color-mix(in oklch, var(--ps-azure) 40%, transparent); }
+.positive-sum-section .ps-game-status.pulse { color: var(--ps-ignition); border-color: color-mix(in oklch, var(--ps-ignition) 40%, transparent); }
+.positive-sum-section .ps-game-status.horizon { color: var(--ps-ember); border-color: color-mix(in oklch, var(--ps-ember) 40%, transparent); }
+
+.positive-sum-section .ps-game-name {
+  font-family: var(--ps-f-display); font-weight: 500;
+  font-size: 22px; letter-spacing: -0.02em;
+  color: var(--ps-ink-0); line-height: 1.1;
+  margin-top: 8px;
+}
+.positive-sum-section .ps-game-tag {
+  font-family: var(--ps-f-mono);
+  font-size: 9.5px; letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--c, var(--ps-violet));
+}
+.positive-sum-section .ps-game-mech {
+  font-size: 13.5px; line-height: 1.6;
+  color: var(--ps-ink-1);
+  margin: 0;
+}
+.positive-sum-section .ps-game-mech strong { color: var(--ps-ink-0); font-weight: 500; }
+.positive-sum-section .ps-game-pos {
+  margin-top: auto;
+  padding-top: 14px;
+  border-top: 1px solid var(--ps-line);
+  font-size: 12.5px; line-height: 1.55;
+  color: var(--ps-ink-2);
+  font-style: italic;
+}
+.positive-sum-section .ps-game-pos::before {
+  content: 'WHY +SUM · ';
+  font-family: var(--ps-f-mono);
+  font-size: 9px; letter-spacing: 0.18em;
+  font-style: normal;
+  color: var(--c, var(--ps-violet));
+}
+.positive-sum-section .ps-game-meta {
+  display: flex; gap: 14px; flex-wrap: wrap;
+  font-family: var(--ps-f-mono);
+  font-size: 9.5px; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--ps-ink-3);
+}
+.positive-sum-section .ps-game-meta span strong { color: var(--c, var(--ps-violet-soft)); font-weight: 500; }
+
+/* Sybil resistance — 3-card row */
+.positive-sum-section .ps-sybil {
+  padding: 48px 0 64px;
+  border-bottom: 1px solid var(--ps-line);
+}
+.positive-sum-section .ps-sybil-lede {
+  max-width: 70ch;
+  font-size: 17px; line-height: 1.65;
+  color: var(--ps-ink-1);
+  margin: 0 0 40px;
+}
+.positive-sum-section .ps-sybil-lede strong { color: var(--ps-ink-0); font-weight: 500; }
+.positive-sum-section .ps-sybil-lede em { color: var(--ps-plasma); font-style: italic; }
+.positive-sum-section .ps-sybil-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+}
+@media (max-width: 900px) {
+  .positive-sum-section .ps-sybil-grid { grid-template-columns: 1fr; }
+}
+.positive-sum-section .ps-sybil-card {
+  position: relative;
+  border: 1px solid var(--ps-line);
+  background: linear-gradient(180deg, color-mix(in oklch, var(--ps-bg-1) 75%, transparent), var(--ps-bg-0));
+  padding: 28px 24px 24px;
+  min-height: 200px;
+}
+.positive-sum-section .ps-sybil-card::before {
+  content: '';
+  position: absolute; top: 0; left: 0;
+  width: 28px; height: 2px;
+  background: var(--c);
+  box-shadow: 0 0 10px var(--c);
+}
+.positive-sum-section .ps-sybil-tag {
+  font-family: var(--ps-f-mono);
+  font-size: 10px; letter-spacing: 0.28em;
+  text-transform: uppercase; color: var(--c);
+  margin-bottom: 16px;
+}
+.positive-sum-section .ps-sybil-name {
+  font-family: var(--ps-f-display); font-weight: 500;
+  font-size: 22px; letter-spacing: -0.022em;
+  color: var(--ps-ink-0); line-height: 1.1;
+  margin-bottom: 14px;
+}
+.positive-sum-section .ps-sybil-desc {
+  font-size: 13.5px; line-height: 1.6;
+  color: var(--ps-ink-2);
+  margin: 0 0 14px;
+}
+.positive-sum-section .ps-sybil-examples {
+  font-family: var(--ps-f-mono);
+  font-size: 9.5px; letter-spacing: 0.16em; text-transform: uppercase;
+  color: var(--c);
+  display: flex; flex-wrap: wrap; gap: 8px;
+}
+.positive-sum-section .ps-sybil-examples span {
+  border: 1px solid;
+  border-color: color-mix(in oklch, var(--c) 45%, transparent);
+  padding: 5px 10px;
+}
+
+/* AFI panel */
+.positive-sum-section .ps-afi {
+  padding: 64px 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 64px;
+  border-bottom: 1px solid var(--ps-line);
+  align-items: start;
+}
+@media (max-width: 1100px) {
+  .positive-sum-section .ps-afi { grid-template-columns: 1fr; gap: 48px; }
+}
+
+.positive-sum-section .ps-afi-meta .ps-afi-tag {
+  font-family: var(--ps-f-mono);
+  font-size: 10.5px; letter-spacing: 0.28em;
+  text-transform: uppercase; color: var(--ps-plasma);
+  margin-bottom: 20px;
+  display: inline-flex; align-items: center; gap: 14px;
+}
+.positive-sum-section .ps-afi-meta .ps-afi-tag::before {
+  content: ''; width: 28px; height: 1px; background: var(--ps-plasma);
+}
+.positive-sum-section .ps-afi-meta h3 {
+  font-family: var(--ps-f-display); font-weight: 500;
+  font-size: clamp(28px, 3.4vw, 44px);
+  letter-spacing: -0.025em; line-height: 1.05;
+  color: var(--ps-ink-0);
+  margin: 0 0 24px;
+}
+.positive-sum-section .ps-afi-meta h3 em {
+  font-style: italic; font-weight: 300;
+  color: var(--ps-plasma);
+}
+.positive-sum-section .ps-afi-meta p {
+  font-size: 15px; line-height: 1.65;
+  color: var(--ps-ink-1);
+  margin: 0 0 18px;
+  max-width: 50ch;
+}
+.positive-sum-section .ps-afi-meta p strong { color: var(--ps-ink-0); font-weight: 500; }
+
+.positive-sum-section .ps-afi-signals {
+  margin-top: 28px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px;
+  background: var(--ps-line);
+  border: 1px solid var(--ps-line-2);
+}
+.positive-sum-section .ps-afi-signal {
+  background: var(--ps-bg-1);
+  padding: 14px 16px;
+  font-family: var(--ps-f-mono);
+  font-size: 10.5px; letter-spacing: 0.06em;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.positive-sum-section .ps-afi-signal .src {
+  color: var(--ps-violet-soft);
+  font-size: 9px; letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+.positive-sum-section .ps-afi-signal .signal {
+  color: var(--ps-ink-0);
+  letter-spacing: 0.04em;
+  font-weight: 500;
+  font-size: 12px;
+}
+
+/* AFI loop diagram */
+.positive-sum-section .ps-afi-art {
+  position: relative;
+  aspect-ratio: 1;
+  border: 1px solid var(--ps-line-2);
+  background: linear-gradient(160deg, var(--ps-bg-1), var(--ps-bg-0));
+  overflow: hidden;
+}
+.positive-sum-section .ps-afi-art > .corner {
+  position: absolute; width: 14px; height: 14px;
+  border: 1px solid var(--ps-plasma); opacity: 0.7;
+}
+.positive-sum-section .ps-afi-art > .corner.tl { top: 14px; left: 14px; border-right: none; border-bottom: none; }
+.positive-sum-section .ps-afi-art > .corner.tr { top: 14px; right: 14px; border-left: none; border-bottom: none; }
+.positive-sum-section .ps-afi-art > .corner.bl { bottom: 14px; left: 14px; border-right: none; border-top: none; }
+.positive-sum-section .ps-afi-art > .corner.br { bottom: 14px; right: 14px; border-left: none; border-top: none; }
+.positive-sum-section .ps-afi-art .label {
+  position: absolute; top: 22px; left: 32px;
+  font-family: var(--ps-f-mono);
+  font-size: 9.5px; letter-spacing: 0.28em; text-transform: uppercase;
+  color: var(--ps-ink-3);
+}
+.positive-sum-section .ps-afi-art svg {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+}
+.positive-sum-section .ps-afi-art .stat-overlay {
+  position: absolute; bottom: 22px; left: 32px; right: 32px;
+  display: flex; justify-content: space-between;
+  font-family: var(--ps-f-mono);
+  font-size: 9.5px; letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--ps-ink-2);
+}
+.positive-sum-section .ps-afi-art .stat-overlay strong { color: var(--ps-plasma); font-weight: 500; }
+
+/* Open question / Sentinel feature */
+.positive-sum-section .ps-open {
+  padding: 80px 0;
+  border-bottom: 1px solid var(--ps-line);
+}
+.positive-sum-section .ps-open-q {
+  font-family: var(--ps-f-display);
+  font-style: italic; font-weight: 300;
+  font-size: clamp(28px, 3.6vw, 48px);
+  line-height: 1.1; letter-spacing: -0.022em;
+  color: var(--ps-ink-1);
+  max-width: 26ch; margin: 0 0 24px;
+}
+.positive-sum-section .ps-open-a {
+  font-family: var(--ps-f-display); font-weight: 500;
+  font-size: clamp(36px, 4.4vw, 60px);
+  letter-spacing: -0.03em;
+  line-height: 1; margin: 0 0 32px;
+  color: var(--ps-plasma);
+}
+.positive-sum-section .ps-open-a em {
+  font-style: italic; font-weight: 300;
+  color: var(--ps-ember);
+}
+.positive-sum-section .ps-open-body {
+  max-width: 60ch;
+  font-size: 15.5px; line-height: 1.7;
+  color: var(--ps-ink-1);
+  margin: 0 0 18px;
+}
+.positive-sum-section .ps-open-body strong { color: var(--ps-ink-0); font-weight: 500; }
+.positive-sum-section .ps-open-body em { color: var(--ps-plasma); font-style: italic; }
+
+.positive-sum-section .ps-asymmetry {
+  margin-top: 40px;
+  padding: 32px 0 0;
+  border-top: 1px solid var(--ps-line-2);
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+}
+@media (max-width: 900px) {
+  .positive-sum-section .ps-asymmetry { grid-template-columns: 1fr; gap: 28px; }
+}
+.positive-sum-section .ps-asym-item {
+  border-left: 1px solid var(--ps-line-2);
+  padding-left: 22px;
+}
+.positive-sum-section .ps-asym-tag {
+  font-family: var(--ps-f-mono);
+  font-size: 10px; letter-spacing: 0.24em; text-transform: uppercase;
+  color: var(--ps-ember);
+  margin-bottom: 12px;
+}
+.positive-sum-section .ps-asym-name {
+  font-family: var(--ps-f-display); font-weight: 500;
+  font-size: 18px; color: var(--ps-ink-0);
+  letter-spacing: -0.015em;
+  margin-bottom: 10px;
+}
+.positive-sum-section .ps-asym-detail {
+  font-size: 13.5px; line-height: 1.6;
+  color: var(--ps-ink-2);
+}
+
+/* Colophon */
+.positive-sum-section .ps-colophon {
+  margin-top: 64px;
+  padding-top: 24px;
+  border-top: 1px solid var(--ps-line-2);
+  display: flex; justify-content: space-between; flex-wrap: wrap;
+  gap: 24px;
+  font-family: var(--ps-f-mono);
+  font-size: 10px; letter-spacing: 0.24em; text-transform: uppercase;
+  color: var(--ps-ink-3);
+}
+.positive-sum-section .ps-colophon .brand { color: var(--ps-violet-soft); }
+.positive-sum-section .ps-colophon .end { display: flex; gap: 24px; }
+`;
+
+  const html = `<main class="ps-page">
+
+  <!-- Masthead -->
+  <header class="ps-mast">
+    <div class="ps-mast-l">
+      <span class="ps-mast-brand">AP3X · R&amp;D</span>
+      <span>Vol. 01 / Issue 07</span>
+      <span>Positive-Sum Games</span>
+    </div>
+    <div><span class="ps-mast-live">Research · Active</span></div>
+  </header>
+
+  <!-- Hero -->
+  <section class="ps-hero">
+    <div>
+      <div class="ps-eyebrow">§ 07 — The Positive-Sum Games Thesis</div>
+      <h1>When selfishness<br>is <em>structural</em>.</h1>
+      <p class="lede">Bitcoin miners are greedy — and their greed secures the network. <strong>Vector needs the equivalent for AI agents</strong>: protocols where <span class="term">acting in pure self-interest produces a positive externality for the chain</span>. Fourteen candidate games, four interlocking stacks, one composite health metric. Selfish rationality, system-wide gain.</p>
+      <div class="ps-hero-pills">
+        <span class="ps-hero-pill"><strong>14</strong>games</span>
+        <span class="ps-hero-pill"><strong>04</strong>stacks</span>
+        <span class="ps-hero-pill"><strong>03</strong>player types</span>
+        <span class="ps-hero-pill"><strong>05</strong>criteria</span>
+      </div>
+    </div>
+
+    <!-- Hero diagram: Bitcoin → Vector parallel -->
+    <div class="ps-hero-art">
+      <span class="corner tl"></span><span class="corner tr"></span>
+      <span class="corner bl"></span><span class="corner br"></span>
+      <div class="label">FIG. 07.0 · INCENTIVE ANALOGY</div>
+      <svg viewBox="0 0 400 400" preserveAspectRatio="xMidYMid meet">
+        <defs>
+          <pattern id="psGrid0" width="20" height="20" patternUnits="userSpaceOnUse">
+            <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#221E33" stroke-width="0.5"/>
+          </pattern>
+          <radialGradient id="psHashG" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stop-color="#F2A03C" stop-opacity="0.6"/>
+            <stop offset="100%" stop-color="#9A6020" stop-opacity="0"/>
+          </radialGradient>
+          <radialGradient id="psAgentG" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stop-color="#ADA1ED" stop-opacity="0.7"/>
+            <stop offset="100%" stop-color="#5C4FA0" stop-opacity="0"/>
+          </radialGradient>
+        </defs>
+        <rect width="400" height="400" fill="url(#psGrid0)"/>
+
+        <!-- Top half: Bitcoin -->
+        <g>
+          <text x="32" y="34" font-family="JetBrains Mono" font-size="9" fill="#65607A" letter-spacing="2">BITCOIN</text>
+
+          <!-- 5 miners -->
+          <g transform="translate(72 90)">
+            <circle r="14" fill="url(#psHashG)" stroke="#F2A03C" stroke-width="1.2"/>
+            <text y="3" text-anchor="middle" font-family="JetBrains Mono" font-size="9" font-weight="600" fill="#F2A03C">$</text>
+          </g>
+          <g transform="translate(132 90)">
+            <circle r="14" fill="url(#psHashG)" stroke="#F2A03C" stroke-width="1.2"/>
+            <text y="3" text-anchor="middle" font-family="JetBrains Mono" font-size="9" font-weight="600" fill="#F2A03C">$</text>
+          </g>
+          <g transform="translate(192 90)">
+            <circle r="14" fill="url(#psHashG)" stroke="#F2A03C" stroke-width="1.2"/>
+            <text y="3" text-anchor="middle" font-family="JetBrains Mono" font-size="9" font-weight="600" fill="#F2A03C">$</text>
+          </g>
+          <g transform="translate(252 90)">
+            <circle r="14" fill="url(#psHashG)" stroke="#F2A03C" stroke-width="1.2"/>
+            <text y="3" text-anchor="middle" font-family="JetBrains Mono" font-size="9" font-weight="600" fill="#F2A03C">$</text>
+          </g>
+          <g transform="translate(312 90)">
+            <circle r="14" fill="url(#psHashG)" stroke="#F2A03C" stroke-width="1.2"/>
+            <text y="3" text-anchor="middle" font-family="JetBrains Mono" font-size="9" font-weight="600" fill="#F2A03C">$</text>
+          </g>
+
+          <!-- Hash flow -->
+          <g stroke="#F2A03C" stroke-width="0.8" stroke-dasharray="3 3" opacity="0.5">
+            <line x1="72" y1="106" x2="200" y2="160"/>
+            <line x1="132" y1="106" x2="200" y2="160"/>
+            <line x1="192" y1="106" x2="200" y2="160"/>
+            <line x1="252" y1="106" x2="200" y2="160"/>
+            <line x1="312" y1="106" x2="200" y2="160"/>
+          </g>
+
+          <!-- Bitcoin chain output -->
+          <g transform="translate(200 175)">
+            <rect x="-58" y="-12" width="116" height="24" fill="none" stroke="#F2A03C" stroke-width="1.2"/>
+            <text y="3" text-anchor="middle" font-family="JetBrains Mono" font-size="9" font-weight="600" fill="#F2A03C" letter-spacing="2">SECURITY</text>
+          </g>
+        </g>
+
+        <!-- Divider -->
+        <line x1="40" y1="208" x2="360" y2="208" stroke="#322C49" stroke-width="0.6" stroke-dasharray="2 4"/>
+
+        <!-- Bottom half: Vector -->
+        <g>
+          <text x="32" y="232" font-family="JetBrains Mono" font-size="9" fill="#65607A" letter-spacing="2">VECTOR</text>
+
+          <!-- Vector outputs flow from agents -->
+          <g transform="translate(200 235)">
+            <rect x="-58" y="-2" width="116" height="24" fill="none" stroke="#FFE0B8" stroke-width="1.2"/>
+            <rect x="-58" y="-2" width="116" height="24" fill="#FFE0B8" fill-opacity="0.08"/>
+            <text y="14" text-anchor="middle" font-family="JetBrains Mono" font-size="9" font-weight="600" fill="#FFE0B8" letter-spacing="2">AFI</text>
+          </g>
+
+          <!-- 5 agents -->
+          <g stroke="#ADA1ED" stroke-width="0.8" stroke-dasharray="3 3" opacity="0.5">
+            <line x1="200" y1="265" x2="72" y2="320"/>
+            <line x1="200" y1="265" x2="132" y2="320"/>
+            <line x1="200" y1="265" x2="192" y2="320"/>
+            <line x1="200" y1="265" x2="252" y2="320"/>
+            <line x1="200" y1="265" x2="312" y2="320"/>
+          </g>
+
+          <g transform="translate(72 320)">
+            <circle r="14" fill="url(#psAgentG)" stroke="#ADA1ED" stroke-width="1.2"/>
+            <text y="3" text-anchor="middle" font-family="JetBrains Mono" font-size="9" font-weight="600" fill="#ADA1ED">$</text>
+          </g>
+          <g transform="translate(132 320)">
+            <circle r="14" fill="url(#psAgentG)" stroke="#ADA1ED" stroke-width="1.2"/>
+            <text y="3" text-anchor="middle" font-family="JetBrains Mono" font-size="9" font-weight="600" fill="#ADA1ED">$</text>
+          </g>
+          <g transform="translate(192 320)">
+            <circle r="14" fill="url(#psAgentG)" stroke="#ADA1ED" stroke-width="1.2"/>
+            <text y="3" text-anchor="middle" font-family="JetBrains Mono" font-size="9" font-weight="600" fill="#ADA1ED">$</text>
+          </g>
+          <g transform="translate(252 320)">
+            <circle r="14" fill="url(#psAgentG)" stroke="#ADA1ED" stroke-width="1.2"/>
+            <text y="3" text-anchor="middle" font-family="JetBrains Mono" font-size="9" font-weight="600" fill="#ADA1ED">$</text>
+          </g>
+          <g transform="translate(312 320)">
+            <circle r="14" fill="url(#psAgentG)" stroke="#ADA1ED" stroke-width="1.2"/>
+            <text y="3" text-anchor="middle" font-family="JetBrains Mono" font-size="9" font-weight="600" fill="#ADA1ED">$</text>
+          </g>
+
+          <text x="200" y="370" text-anchor="middle" font-family="JetBrains Mono" font-size="8" fill="#918AAB" letter-spacing="2">SELFISH AGENTS · COLLECTIVE GAIN</text>
+        </g>
+      </svg>
+      <div class="stat-overlay">
+        <span><strong>BTC</strong> hashpower</span>
+        <span><strong>=</strong></span>
+        <span><strong>VEC</strong> games</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Pull-quote -->
+  <section class="ps-quote-block">
+    <blockquote class="ps-quote">
+      Agents are <em>selfish</em>,<br>but their selfishness<br>improves the chain.
+    </blockquote>
+    <div class="ps-quote-attr">Operating principle · Vector R&amp;D</div>
+  </section>
+
+  <!-- §07/01 Design Criteria -->
+  <div class="ps-section-head">
+    <div class="l">
+      <div class="num"><span class="ord">§ 07 / 01</span>07A</div>
+      <h2>Five criteria<br>for a valid game.<span class="sub">A protocol earns the &quot;positive-sum&quot; label only when all five hold simultaneously.</span></h2>
+    </div>
+    <div class="meta">
+      <div>Criteria · <strong>05</strong></div>
+      <div>Status · <strong>Locked</strong></div>
+    </div>
+  </div>
+
+  <section class="ps-criteria">
+    <div class="ps-crit">
+      <div class="ps-crit-num">01</div>
+      <div class="ps-crit-name">Selfish<br>rationality</div>
+      <p class="ps-crit-desc">Agents participate because it's profitable, not altruistic. No appeals to civic virtue — only to the income statement.</p>
+    </div>
+    <div class="ps-crit">
+      <div class="ps-crit-num">02</div>
+      <div class="ps-crit-name">Positive<br>externality</div>
+      <p class="ps-crit-desc">Each individual agent's pursuit of profit measurably improves the system for all participants.</p>
+    </div>
+    <div class="ps-crit">
+      <div class="ps-crit-num">03</div>
+      <div class="ps-crit-name">Token value<br>accrual</div>
+      <p class="ps-crit-desc">The protocol creates demand for AP3X — locked, staked, or spent. Activity translates to demand.</p>
+    </div>
+    <div class="ps-crit">
+      <div class="ps-crit-num">04</div>
+      <div class="ps-crit-name">eUTXO<br>advantage</div>
+      <p class="ps-crit-desc">The protocol works strictly better on eUTXO than on account-based chains — parallelism, deterministic fees, MEV resistance.</p>
+    </div>
+    <div class="ps-crit">
+      <div class="ps-crit-num">05</div>
+      <div class="ps-crit-name">Network<br>scalability</div>
+      <p class="ps-crit-desc">More agents produce better outcomes — the protocol generates network effects, not congestion.</p>
+    </div>
+  </section>
+
+  <!-- §07/02 Player Types -->
+  <div class="ps-section-head">
+    <div class="l">
+      <div class="num"><span class="ord">§ 07 / 02</span>07B</div>
+      <h2>Three player types,<br>one mechanism design.<span class="sub">Sybil resistance and capital-at-risk must work across all three — or the protocol is brittle.</span></h2>
+    </div>
+    <div class="meta">
+      <div>Types · <strong>03</strong></div>
+      <div>Coverage · <strong>All</strong></div>
+    </div>
+  </div>
+
+  <section class="ps-players">
+    <div class="ps-player" style="--c: var(--ps-emerald-soft);">
+      <div class="ps-player-tag">Type 01 · Solo</div>
+      <div class="ps-player-glyph">
+        <span class="dot"></span>
+      </div>
+      <div class="ps-player-name">Solo Agent</div>
+      <div class="ps-player-tagline">One human · One agent</div>
+      <p class="ps-player-desc">A single human operates a single agent and reviews all significant decisions. <strong>Early adopters, individual developers, hobbyists.</strong> DID tied to one identifiable operator.</p>
+      <div class="ps-player-traits">
+        <span class="label">Capital</span><span class="val">Low</span>
+        <span class="label">Oversight</span><span class="val">High</span>
+        <span class="label">DIDs</span><span class="val">1 : 1</span>
+        <span class="label">Risk</span><span class="val">Operator</span>
+      </div>
+    </div>
+
+    <div class="ps-player" style="--c: var(--ps-azure);">
+      <div class="ps-player-tag">Type 02 · Swarm</div>
+      <div class="ps-player-glyph">
+        <span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot muted"></span>
+      </div>
+      <div class="ps-player-name">Agent Swarm</div>
+      <div class="ps-player-tagline">One human · Many agents</div>
+      <p class="ps-player-desc">A single operator runs a coordinated swarm — agents specialize: indexing, auditing, trading. <strong>Multiple DIDs, same operator — a potential sybil vector.</strong> Sybil resistance must account for legitimate specialization.</p>
+      <div class="ps-player-traits">
+        <span class="label">Capital</span><span class="val">Medium</span>
+        <span class="label">Oversight</span><span class="val">Strategy-level</span>
+        <span class="label">DIDs</span><span class="val">1 : N</span>
+        <span class="label">Risk</span><span class="val">Specialization</span>
+      </div>
+    </div>
+
+    <div class="ps-player" style="--c: var(--ps-ember);">
+      <div class="ps-player-tag">Type 03 · Autonomous</div>
+      <div class="ps-player-glyph">
+        <span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot muted"></span><span class="dot muted"></span><span class="dot faint"></span>
+      </div>
+      <div class="ps-player-name">Autonomous Swarm</div>
+      <div class="ps-player-tagline">Emergent · Beyond direct control</div>
+      <p class="ps-player-desc">Swarms so large that individual agents act autonomously. Operated by organizations, DAOs, or even other agents. <strong>Where mechanism design matters most</strong> — emergent behavior, collective effect, low oversight per agent.</p>
+      <div class="ps-player-traits">
+        <span class="label">Capital</span><span class="val">High</span>
+        <span class="label">Oversight</span><span class="val">Low</span>
+        <span class="label">DIDs</span><span class="val">N : N</span>
+        <span class="label">Risk</span><span class="val">Emergent</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- §07/03 Stack Architecture -->
+  <div class="ps-section-head">
+    <div class="l">
+      <div class="num"><span class="ord">§ 07 / 03</span>07C</div>
+      <h2>Four stacks,<br>fourteen games.<span class="sub">Trust, security, finance, coordination — the protocols compose into an interlocking economy.</span></h2>
+    </div>
+    <div class="meta">
+      <div>Stacks · <strong>04</strong></div>
+      <div>Priority · <strong>02</strong></div>
+    </div>
+  </div>
+
+  <section class="ps-stacks">
+    <div class="ps-stacks-grid">
+      <div class="ps-stack" style="--c: var(--ps-emerald);">
+        <div class="ps-stack-tag">Stack · 01</div>
+        <div class="ps-stack-name">Core</div>
+        <div class="ps-stack-role">Trust · Disputes · Commerce</div>
+        <p class="ps-stack-desc">The agent economy substrate. Reputation as collateral, escrow as primitive, auditing as the dispute layer, marketplace as the activity layer.</p>
+        <ul class="ps-stack-games">
+          <li class="priority"><span class="name">Vigil</span><span class="role">Auditing</span></li>
+          <li><span class="name">Sigil</span><span class="role">Reputation</span></li>
+          <li><span class="name">Pact</span><span class="role">Escrow</span></li>
+          <li><span class="name">Forge</span><span class="role">Marketplace</span></li>
+        </ul>
+      </div>
+
+      <div class="ps-stack" style="--c: var(--ps-ember);">
+        <div class="ps-stack-tag">Stack · 02</div>
+        <div class="ps-stack-name">Security</div>
+        <div class="ps-stack-role">Maintenance · Discovery · Defense</div>
+        <p class="ps-stack-desc">Useful work funds infrastructure. Discovery establishes priority. The chain immune system pays attackers to disclose — selfishness becomes hardening.</p>
+        <ul class="ps-stack-games">
+          <li><span class="name">Furnace</span><span class="role">Useful work</span></li>
+          <li><span class="name">Herald</span><span class="role">Discovery</span></li>
+          <li class="priority"><span class="name">Sentinel</span><span class="role">Immune system</span></li>
+        </ul>
+      </div>
+
+      <div class="ps-stack" style="--c: var(--ps-ignition);">
+        <div class="ps-stack-tag">Stack · 03</div>
+        <div class="ps-stack-name">Financial</div>
+        <div class="ps-stack-role">Liquidity · Reputation markets · Foresight</div>
+        <p class="ps-stack-desc">Arbitrage tightens spreads. Bonding curves price reputation. Prediction markets surface intelligence and create constant velocity.</p>
+        <ul class="ps-stack-games">
+          <li><span class="name">Conduit</span><span class="role">Liquidity</span></li>
+          <li><span class="name">Prism</span><span class="role">Bonding curves</span></li>
+          <li><span class="name">Omen</span><span class="role">Prediction</span></li>
+        </ul>
+      </div>
+
+      <div class="ps-stack" style="--c: var(--ps-violet-soft);">
+        <div class="ps-stack-tag">Stack · 04</div>
+        <div class="ps-stack-name">Coordination</div>
+        <div class="ps-stack-role">Governance · Compute · Tournaments</div>
+        <p class="ps-stack-desc">Distributed compute, advisory governance, periodic tournaments. The meta-layer where collective intelligence emerges as a product.</p>
+        <ul class="ps-stack-games">
+          <li><span class="name">Oracle</span><span class="role">Governance</span></li>
+          <li><span class="name">Lattice</span><span class="role">Compute</span></li>
+          <li><span class="name">Crucible</span><span class="role">Tournaments</span></li>
+          <li><span class="name">Anchor</span><span class="role">Anchoring</span></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- §07/04 Game Cards -->
+  <div class="ps-section-head">
+    <div class="l">
+      <div class="num"><span class="ord">§ 07 / 04</span>07D</div>
+      <h2>The fourteen<br>games, in detail.<span class="sub">Each protocol — mechanism, rationale, deployment phase. Two carry the &quot;★ Priority&quot; flag.</span></h2>
+    </div>
+    <div class="meta">
+      <div>Games · <strong>14</strong></div>
+      <div>★ Priority · <strong>02</strong></div>
+    </div>
+  </div>
+
+  <section class="ps-games">
+    <!-- 01 Vigil -->
+    <article class="ps-game" style="--c: var(--ps-emerald);">
+      <div class="ps-game-head">
+        <div class="ps-game-mark">Vigil<span class="num">·01</span></div>
+        <div class="ps-game-status priority">Priority</div>
+      </div>
+      <div class="ps-game-name">Adversarial auditing</div>
+      <div class="ps-game-tag">Core stack · Meridian</div>
+      <p class="ps-game-mech">Agents stake AP3X to <strong>challenge the correctness of other agents' on-chain claims</strong>. Resolution by oracle, multi-agent jury, or cryptographic proof. Loser forfeits stake to winner.</p>
+      <div class="ps-game-pos">More agents → more auditors → higher trust. Selfish auditors generate system-wide integrity as a byproduct.</div>
+      <div class="ps-game-meta">
+        <span>Min agents · <strong>~10</strong></span>
+        <span>Sybil · <strong>Stake</strong></span>
+      </div>
+    </article>
+
+    <!-- 02 Sigil -->
+    <article class="ps-game" style="--c: var(--ps-emerald);">
+      <div class="ps-game-head">
+        <div class="ps-game-mark">Sigil<span class="num">·02</span></div>
+        <div class="ps-game-status meridian">Meridian</div>
+      </div>
+      <div class="ps-game-name">Reputation staking</div>
+      <div class="ps-game-tag">Core stack · Meridian</div>
+      <p class="ps-game-mech">Agents stake AP3X proportional to claimed capabilities. Others endorse (FOR) or challenge (AGAINST). The registry becomes a <strong>canonical, economically-secured directory of reliable agents</strong>.</p>
+      <div class="ps-game-pos">Stake IS reputation. Endorsement creates social proof. Discoverability becomes a network-effect moat.</div>
+      <div class="ps-game-meta">
+        <span>Min agents · <strong>~5</strong></span>
+        <span>Sybil · <strong>Stake</strong></span>
+      </div>
+    </article>
+
+    <!-- 03 Pact -->
+    <article class="ps-game" style="--c: var(--ps-emerald);">
+      <div class="ps-game-head">
+        <div class="ps-game-mark">Pact<span class="num">·03</span></div>
+        <div class="ps-game-status meridian">Meridian</div>
+      </div>
+      <div class="ps-game-name">Skin-in-the-game escrow</div>
+      <div class="ps-game-tag">Core stack · Meridian</div>
+      <p class="ps-game-mech">Both parties stake AP3X — payment + bond from requester, performance bond from performer. Disputes resolved by Sigil-weighted, randomly-selected auditor agents.</p>
+      <div class="ps-game-pos"><strong>Sybiling becomes unprofitable by construction</strong> — fake tasks cost real bonds. The only profit path is real work.</div>
+      <div class="ps-game-meta">
+        <span>Min agents · <strong>2</strong></span>
+        <span>Sybil · <strong>Very High</strong></span>
+      </div>
+    </article>
+
+    <!-- 04 Forge -->
+    <article class="ps-game" style="--c: var(--ps-emerald);">
+      <div class="ps-game-head">
+        <div class="ps-game-mark">Forge<span class="num">·04</span></div>
+        <div class="ps-game-status pulse">Pulse</div>
+      </div>
+      <div class="ps-game-name">Agent task marketplace</div>
+      <div class="ps-game-tag">Core stack · Pulse</div>
+      <p class="ps-game-mech">Agents post task offers as UTXOs (&quot;X AP3X for Y service&quot;). Other agents fulfill and consume the UTXO. <strong>The UTXO model IS the matching engine</strong> — no order book, no central coordinator.</p>
+      <div class="ps-game-pos">Specialization emerges naturally — agents optimize for tasks they're best at. Network effects on services.</div>
+      <div class="ps-game-meta">
+        <span>Min agents · <strong>~20</strong></span>
+        <span>Sybil · <strong>Medium</strong></span>
+      </div>
+    </article>
+
+    <!-- 05 Furnace -->
+    <article class="ps-game" style="--c: var(--ps-ember);">
+      <div class="ps-game-head">
+        <div class="ps-game-mark">Furnace<span class="num">·05</span></div>
+        <div class="ps-game-status keystone">Keystone</div>
+      </div>
+      <div class="ps-game-name">Proof of useful work</div>
+      <div class="ps-game-tag">Security stack · Keystone</div>
+      <p class="ps-game-mech">Agents perform off-chain work that benefits the ecosystem — indexing, oracle maintenance, bridge monitoring, knowledge-graph curation. They submit proofs on-chain; verified contributions earn AP3X from a Foundation pool.</p>
+      <div class="ps-game-pos"><strong>Works with one agent.</strong> No critical mass needed. Decentralized maintenance, no single point of failure.</div>
+      <div class="ps-game-meta">
+        <span>Min agents · <strong>1</strong></span>
+        <span>Sybil · <strong>Verify work</strong></span>
+      </div>
+    </article>
+
+    <!-- 06 Herald -->
+    <article class="ps-game" style="--c: var(--ps-ember);">
+      <div class="ps-game-head">
+        <div class="ps-game-mark">Herald<span class="num">·06</span></div>
+        <div class="ps-game-status horizon">Horizon</div>
+      </div>
+      <div class="ps-game-name">Proof of discovery</div>
+      <div class="ps-game-tag">Security stack · Horizon</div>
+      <p class="ps-game-mech">An agent discovers something valuable off-chain — vulnerability, market inefficiency, dataset — and timestamps the hash on Vector before public disclosure. The UTXO becomes <strong>the immutable proof-of-priority artifact</strong>.</p>
+      <div class="ps-game-pos">Selfish race to discover and timestamp. Continuous improvement of ecosystem security and knowledge as a side effect.</div>
+      <div class="ps-game-meta">
+        <span>Min agents · <strong>1</strong></span>
+        <span>Sybil · <strong>Bounty-gated</strong></span>
+      </div>
+    </article>
+
+    <!-- 07 Sentinel -->
+    <article class="ps-game" style="--c: var(--ps-ember);">
+      <div class="ps-game-head">
+        <div class="ps-game-mark">Sentinel<span class="num">·07</span></div>
+        <div class="ps-game-status priority">Priority</div>
+      </div>
+      <div class="ps-game-name">Chain immune system</div>
+      <div class="ps-game-tag">Security stack · Meridian</div>
+      <p class="ps-game-mech">Agents continuously monitor Vector for anomalies. When an agent detects a real issue it earns AP3X from a bounty pool; false reports are slashed. <strong>The adversarial twist: attacking agents must disclose to get paid</strong> — disclosure IS the externality.</p>
+      <div class="ps-game-pos">The chain literally develops an AI-powered immune system that strengthens with every attack. Malice converts to hardening.</div>
+      <div class="ps-game-meta">
+        <span>Min agents · <strong>~5</strong></span>
+        <span>Sybil · <strong>Real vulns</strong></span>
+      </div>
+    </article>
+
+    <!-- 08 Conduit -->
+    <article class="ps-game" style="--c: var(--ps-ignition);">
+      <div class="ps-game-head">
+        <div class="ps-game-mark">Conduit<span class="num">·08</span></div>
+        <div class="ps-game-status pulse">Pulse</div>
+      </div>
+      <div class="ps-game-name">Liquidity discovery</div>
+      <div class="ps-game-tag">Financial stack · Pulse</div>
+      <p class="ps-game-mech">Agents compete to find profitable cross-chain arbitrage routes via Reactor / Skyline. Each successful arbitrage <strong>deepens Vector's liquidity as a side effect</strong>. Pure profit-seeking, aggregate market efficiency.</p>
+      <div class="ps-game-pos">Arbitrageurs correct price inefficiencies → tighter spreads for everyone. eUTXO removes MEV from the equation.</div>
+      <div class="ps-game-meta">
+        <span>Min agents · <strong>~5</strong></span>
+        <span>Sybil · <strong>Real arb</strong></span>
+      </div>
+    </article>
+
+    <!-- 09 Prism -->
+    <article class="ps-game" style="--c: var(--ps-ignition);">
+      <div class="ps-game-head">
+        <div class="ps-game-mark">Prism<span class="num">·09</span></div>
+        <div class="ps-game-status horizon">Horizon</div>
+      </div>
+      <div class="ps-game-name">Agent bonding curves</div>
+      <div class="ps-game-tag">Financial stack · Horizon</div>
+      <p class="ps-game-mech">Each registered agent can launch a personal bonding curve token, with AP3X as the reserve asset. Buying agent-tokens signals trust and bets on future success. <strong>AP3X becomes the reserve currency of the agent reputation economy.</strong></p>
+      <div class="ps-game-pos">Potentially the strongest AP3X holding incentive. Early backers of good agents are rewarded directly.</div>
+      <div class="ps-game-meta">
+        <span>Min agents · <strong>~20</strong></span>
+        <span>Sybil · <strong>Capital</strong></span>
+      </div>
+    </article>
+
+    <!-- 10 Omen -->
+    <article class="ps-game" style="--c: var(--ps-ignition);">
+      <div class="ps-game-head">
+        <div class="ps-game-mark">Omen<span class="num">·10</span></div>
+        <div class="ps-game-status meridian">Meridian</div>
+      </div>
+      <div class="ps-game-name">Prediction markets</div>
+      <div class="ps-game-tag">Financial stack · Meridian</div>
+      <p class="ps-game-mech">Agents bet AP3X on future chain metrics — tx volume, registrations, vulnerabilities discovered, AP3X price levels. Resolution by objective on-chain data; correct predictions earn from incorrect.</p>
+      <div class="ps-game-pos"><strong>Inherently sybil-resistant.</strong> Sybil agents making wrong predictions just donate AP3X to correct predictors. Public-good intelligence as a byproduct.</div>
+      <div class="ps-game-meta">
+        <span>Min agents · <strong>~5</strong></span>
+        <span>Sybil · <strong>Very High</strong></span>
+      </div>
+    </article>
+
+    <!-- 11 Oracle -->
+    <article class="ps-game" style="--c: var(--ps-violet-soft);">
+      <div class="ps-game-head">
+        <div class="ps-game-mark">Oracle<span class="num">·11</span></div>
+        <div class="ps-game-status keystone">Keystone</div>
+      </div>
+      <div class="ps-game-name">Governance suggestions</div>
+      <div class="ps-game-tag">Coordination stack · Keystone</div>
+      <p class="ps-game-mech">Agents analyze chain metrics, submit reasoned governance proposals to the Foundation Council, and earn AP3X for adopted suggestions. <strong>Advisory governance, not direct</strong> — agents reason, the Council decides.</p>
+      <div class="ps-game-pos">Foundation gets AI-powered analysis for free. Agents that consistently produce adopted proposals build durable reputation.</div>
+      <div class="ps-game-meta">
+        <span>Min agents · <strong>1</strong></span>
+        <span>Sybil · <strong>Foundation verifies</strong></span>
+      </div>
+    </article>
+
+    <!-- 12 Lattice -->
+    <article class="ps-game" style="--c: var(--ps-violet-soft);">
+      <div class="ps-game-head">
+        <div class="ps-game-mark">Lattice<span class="num">·12</span></div>
+        <div class="ps-game-status pulse">Pulse</div>
+      </div>
+      <div class="ps-game-name">Cooperative computation</div>
+      <div class="ps-game-tag">Coordination stack · Pulse</div>
+      <p class="ps-game-mech">Multiple agents pool resources to solve problems too large for any single agent — distributed model training, dataset processing, knowledge graph curation. <strong>Vector becomes the coordination layer for distributed AI computation.</strong></p>
+      <div class="ps-game-pos">Enables tasks no single agent can accomplish. More pool participants → bigger problems solvable → more valuable network.</div>
+      <div class="ps-game-meta">
+        <span>Min agents · <strong>~5</strong></span>
+        <span>Sybil · <strong>Compute</strong></span>
+      </div>
+    </article>
+
+    <!-- 13 Crucible -->
+    <article class="ps-game" style="--c: var(--ps-violet-soft);">
+      <div class="ps-game-head">
+        <div class="ps-game-mark">Crucible<span class="num">·13</span></div>
+        <div class="ps-game-status pulse">Pulse</div>
+      </div>
+      <div class="ps-game-name">Collective intelligence tournaments</div>
+      <div class="ps-game-tag">Coordination stack · Pulse</div>
+      <p class="ps-game-mech">Periodic competitions where agents stake AP3X to compete on defined problems — DeFi optimization, arbitrage discovery, contract auditing, governance. Winners take the pool; <strong>solutions are published on-chain and become public goods</strong>.</p>
+      <div class="ps-game-pos">Selfish prize-seeking produces a public library of winning strategies. Periodic spikes of activity and attention.</div>
+      <div class="ps-game-meta">
+        <span>Min agents · <strong>~10</strong></span>
+        <span>Sybil · <strong>Competition</strong></span>
+      </div>
+    </article>
+
+    <!-- 14 Anchor -->
+    <article class="ps-game" style="--c: var(--ps-violet-soft);">
+      <div class="ps-game-head">
+        <div class="ps-game-mark">Anchor<span class="num">·14</span></div>
+        <div class="ps-game-status horizon">Horizon</div>
+      </div>
+      <div class="ps-game-name">Data anchoring as a service</div>
+      <div class="ps-game-tag">Coordination stack · Horizon</div>
+      <p class="ps-game-mech">Agents offer data timestamping and proof-of-existence services to off-chain clients — businesses, protocols, individuals. Clients pay AP3X to anchor a hash on Vector. <strong>External demand for AP3X from non-crypto sources.</strong></p>
+      <div class="ps-game-pos">Diversifies the chain's user base. Real-world buy pressure that doesn't depend on the crypto cycle.</div>
+      <div class="ps-game-meta">
+        <span>Min agents · <strong>1</strong></span>
+        <span>Sybil · <strong>Real work</strong></span>
+      </div>
+    </article>
+  </section>
+
+  <!-- §07/05 Sybil Resistance Framework -->
+  <div class="ps-section-head">
+    <div class="l">
+      <div class="num"><span class="ord">§ 07 / 05</span>07E</div>
+      <h2>The sybil<br>inversion.<span class="sub">Don't prevent sybils — make every reward require real work, real capital, or objective resolution.</span></h2>
+    </div>
+    <div class="meta">
+      <div>Vectors · <strong>03</strong></div>
+      <div>Posture · <strong>Inversion</strong></div>
+    </div>
+  </div>
+
+  <section class="ps-sybil">
+    <p class="ps-sybil-lede">The Bitcoin parallel: <em>nobody asks how many miners exist</em>, because every miner contributes hashpower regardless of identity. The Vector equivalent: <strong>if every reward requires a contribution, sybils become free labor for the ecosystem</strong>. Three valid gating categories — combine at least one in every protocol.</p>
+
+    <div class="ps-sybil-grid">
+      <div class="ps-sybil-card" style="--c: var(--ps-emerald);">
+        <div class="ps-sybil-tag">Vector · 01</div>
+        <div class="ps-sybil-name">Verifiable work</div>
+        <p class="ps-sybil-desc">The reward requires computation that cannot be faked — and verification is independent of the claimant. Sybils that don't compute produce invalid outputs.</p>
+        <div class="ps-sybil-examples"><span>Furnace</span><span>Pact</span><span>Lattice</span></div>
+      </div>
+      <div class="ps-sybil-card" style="--c: var(--ps-ignition);">
+        <div class="ps-sybil-tag">Vector · 02</div>
+        <div class="ps-sybil-name">Capital at risk</div>
+        <p class="ps-sybil-desc">Participation requires AP3X locked or stakeable — sybiling costs real money. The protocol's bond size sets the floor on sybil-attack profitability.</p>
+        <div class="ps-sybil-examples"><span>Vigil</span><span>Sigil</span><span>Prism</span><span>Pact</span><span>Omen</span></div>
+      </div>
+      <div class="ps-sybil-card" style="--c: var(--ps-azure);">
+        <div class="ps-sybil-tag">Vector · 03</div>
+        <div class="ps-sybil-name">Objective resolution</div>
+        <p class="ps-sybil-desc">Outcomes resolve against on-chain or otherwise tamper-evident data. Sybil opinions cannot move the result — only correct calls earn.</p>
+        <div class="ps-sybil-examples"><span>Omen</span><span>Anchor</span><span>Conduit</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- §07/06 AFI -->
+  <div class="ps-section-head">
+    <div class="l">
+      <div class="num"><span class="ord">§ 07 / 06</span>07F</div>
+      <h2>The Agent Fusion<br>Index.<span class="sub">A composite, on-chain health score. Single number; many signals; reflexive loop.</span></h2>
+    </div>
+    <div class="meta">
+      <div>Signals · <strong>09</strong></div>
+      <div>Cadence · <strong>Per epoch</strong></div>
+    </div>
+  </div>
+
+  <section class="ps-afi">
+    <div class="ps-afi-meta">
+      <div class="ps-afi-tag">Meta-protocol · AFI</div>
+      <h3>One number<br>that reads <em>truthfully</em>.</h3>
+      <p>Every protocol generates measurable on-chain signals. AFI combines them into a composite health score, published on-chain every epoch. <strong>Hard to game</strong> because each input requires real contribution or capital. Foundation rewards can be tied algorithmically to AFI growth, creating a reflexive feedback loop: more agents → better signals → higher AFI → richer rewards → more agents.</p>
+      <p>Investor-readable as a single ecosystem health indicator — more meaningful than TVL or raw transaction count, and naturally <strong>prediction-market-ready</strong> via Omen, which closes the meta-loop.</p>
+
+      <div class="ps-afi-signals">
+        <div class="ps-afi-signal"><span class="src">Sigil</span><span class="signal">Reputation capital</span></div>
+        <div class="ps-afi-signal"><span class="src">Sentinel</span><span class="signal">Security score</span></div>
+        <div class="ps-afi-signal"><span class="src">Omen</span><span class="signal">Prediction accuracy</span></div>
+        <div class="ps-afi-signal"><span class="src">Furnace</span><span class="signal">Infrastructure uptime</span></div>
+        <div class="ps-afi-signal"><span class="src">Pact</span><span class="signal">Escrow volume</span></div>
+        <div class="ps-afi-signal"><span class="src">Forge</span><span class="signal">Task throughput</span></div>
+        <div class="ps-afi-signal"><span class="src">Oracle</span><span class="signal">Governance activity</span></div>
+        <div class="ps-afi-signal"><span class="src">Conduit</span><span class="signal">Liquidity depth</span></div>
+      </div>
+    </div>
+
+    <div class="ps-afi-art">
+      <span class="corner tl"></span><span class="corner tr"></span>
+      <span class="corner bl"></span><span class="corner br"></span>
+      <div class="label">FIG. 07.06 · REFLEXIVE LOOP</div>
+      <svg viewBox="0 0 400 400" preserveAspectRatio="xMidYMid meet">
+        <defs>
+          <pattern id="psGridAfi" width="20" height="20" patternUnits="userSpaceOnUse">
+            <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#221E33" stroke-width="0.5"/>
+          </pattern>
+          <radialGradient id="psAfiCore" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stop-color="#FFE0B8" stop-opacity="0.95"/>
+            <stop offset="40%" stop-color="#F2A03C" stop-opacity="0.5"/>
+            <stop offset="100%" stop-color="#9A6020" stop-opacity="0"/>
+          </radialGradient>
+        </defs>
+        <rect width="400" height="400" fill="url(#psGridAfi)"/>
+
+        <!-- Outer ring with 6 nodes (the loop) -->
+        <g fill="none" stroke="#322C49" stroke-width="0.6">
+          <circle cx="200" cy="200" r="140" stroke-dasharray="3 5"/>
+        </g>
+
+        <!-- Loop nodes positioned around circle -->
+        <!-- 0: Agents play protocols (top) -->
+        <g transform="translate(200 60)">
+          <rect x="-66" y="-16" width="132" height="32" fill="#06100C" stroke="#ADA1ED" stroke-width="1"/>
+          <rect x="-66" y="-16" width="132" height="32" fill="#5C4FA0" fill-opacity="0.18"/>
+          <text y="-2" text-anchor="middle" font-family="JetBrains Mono" font-size="9" font-weight="600" fill="#ADA1ED" letter-spacing="2">AGENTS PLAY</text>
+          <text y="9" text-anchor="middle" font-family="JetBrains Mono" font-size="7.5" fill="#918AAB" letter-spacing="1.5">protocols</text>
+        </g>
+
+        <!-- 1: Signals (top right) -->
+        <g transform="translate(322 130)">
+          <rect x="-50" y="-14" width="100" height="28" fill="#06100C" stroke="#7FD5A1" stroke-width="1"/>
+          <text y="-1" text-anchor="middle" font-family="JetBrains Mono" font-size="9" font-weight="600" fill="#7FD5A1" letter-spacing="2">SIGNALS</text>
+          <text y="9" text-anchor="middle" font-family="JetBrains Mono" font-size="7" fill="#918AAB" letter-spacing="1.5">improve</text>
+        </g>
+
+        <!-- 2: AFI rises (bottom right) -->
+        <g transform="translate(322 270)">
+          <rect x="-50" y="-14" width="100" height="28" fill="#06100C" stroke="#FFE0B8" stroke-width="1.4"/>
+          <rect x="-50" y="-14" width="100" height="28" fill="#FFE0B8" fill-opacity="0.10"/>
+          <text y="-1" text-anchor="middle" font-family="JetBrains Mono" font-size="9" font-weight="600" fill="#FFE0B8" letter-spacing="2">AFI ↑</text>
+          <text y="9" text-anchor="middle" font-family="JetBrains Mono" font-size="7" fill="#918AAB" letter-spacing="1.5">composite</text>
+        </g>
+
+        <!-- 3: Rewards scale (bottom) -->
+        <g transform="translate(200 340)">
+          <rect x="-66" y="-16" width="132" height="32" fill="#06100C" stroke="#F2A03C" stroke-width="1"/>
+          <rect x="-66" y="-16" width="132" height="32" fill="#F2A03C" fill-opacity="0.10"/>
+          <text y="-2" text-anchor="middle" font-family="JetBrains Mono" font-size="9" font-weight="600" fill="#F2A03C" letter-spacing="2">REWARDS</text>
+          <text y="9" text-anchor="middle" font-family="JetBrains Mono" font-size="7.5" fill="#918AAB" letter-spacing="1.5">scale w/ AFI</text>
+        </g>
+
+        <!-- 4: More agents (bottom left) -->
+        <g transform="translate(78 270)">
+          <rect x="-50" y="-14" width="100" height="28" fill="#06100C" stroke="#ADA1ED" stroke-width="1"/>
+          <text y="-1" text-anchor="middle" font-family="JetBrains Mono" font-size="9" font-weight="600" fill="#ADA1ED" letter-spacing="2">AGENTS ↑</text>
+          <text y="9" text-anchor="middle" font-family="JetBrains Mono" font-size="7" fill="#918AAB" letter-spacing="1.5">attracted</text>
+        </g>
+
+        <!-- 5: Richer protocols (top left) -->
+        <g transform="translate(78 130)">
+          <rect x="-50" y="-14" width="100" height="28" fill="#06100C" stroke="#7FD5A1" stroke-width="1"/>
+          <text y="-1" text-anchor="middle" font-family="JetBrains Mono" font-size="9" font-weight="600" fill="#7FD5A1" letter-spacing="2">PROTOCOLS</text>
+          <text y="9" text-anchor="middle" font-family="JetBrains Mono" font-size="7" fill="#918AAB" letter-spacing="1.5">deepen</text>
+        </g>
+
+        <!-- Curved arrows between nodes -->
+        <g fill="none" stroke="#ADA1ED" stroke-width="1.1" opacity="0.65" stroke-dasharray="4 3">
+          <path d="M 248 76 A 140 140 0 0 1 322 116"/>
+          <path d="M 322 144 A 140 140 0 0 1 322 256"/>
+          <path d="M 322 284 A 140 140 0 0 1 248 324"/>
+          <path d="M 152 324 A 140 140 0 0 1 78 284"/>
+          <path d="M 78 256 A 140 140 0 0 1 78 144"/>
+          <path d="M 78 116 A 140 140 0 0 1 152 76"/>
+        </g>
+
+        <!-- Center: AFI hub -->
+        <g transform="translate(200 200)">
+          <circle r="48" fill="url(#psAfiCore)"/>
+          <circle r="32" fill="none" stroke="#FFE0B8" stroke-width="1.4"/>
+          <circle r="32" fill="#06100C" fill-opacity="0.7"/>
+          <text y="-4" text-anchor="middle" font-family="JetBrains Mono" font-size="11" font-weight="700" fill="#FFE0B8" letter-spacing="2">AFI</text>
+          <text y="10" text-anchor="middle" font-family="JetBrains Mono" font-size="7" fill="#F2A03C" letter-spacing="1.5">north star</text>
+        </g>
+
+        <!-- Loop indicator: small arrows -->
+        <g fill="#ADA1ED" opacity="0.7">
+          <polygon points="248,76 240,72 244,80"/>
+          <polygon points="322,256 326,248 330,256"/>
+          <polygon points="248,324 252,320 248,316"/>
+          <polygon points="78,144 82,148 78,152"/>
+        </g>
+      </svg>
+      <div class="stat-overlay">
+        <span><strong>09</strong> signals</span>
+        <span><strong>1</strong> index</span>
+        <span><strong>Reflexive</strong></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- §07/07 The Open Question -->
+  <div class="ps-section-head">
+    <div class="l">
+      <div class="num"><span class="ord">§ 07 / 07</span>07G</div>
+      <h2>The unanswered<br>core question.<span class="sub">Can we name one mechanism where pure self-interest — including malice — produces a positive externality?</span></h2>
+    </div>
+    <div class="meta">
+      <div>Candidate · <strong>Sentinel</strong></div>
+      <div>Status · <strong>Live design</strong></div>
+    </div>
+  </div>
+
+  <section class="ps-open">
+    <p class="ps-open-q">&ldquo;Name one mechanism where an agent acting in pure self-interest — including <em>maliciously</em> — produces a net positive externality for the chain.&rdquo;</p>
+    <div class="ps-open-a">Sentinel <em>is the answer.</em></div>
+    <p class="ps-open-body">An attacker who exploits a vulnerability in silence collects an uncertain criminal profit. An attacker who discloses through Sentinel collects <strong>certain, legal income</strong>. The bounty doesn't have to be larger than the exploit — it has to be large enough to make the legal path attractive when paired with the asymmetry of risk.</p>
+    <p class="ps-open-body">Disclosure becomes the dominant strategy. The chain literally pays its enemies to defect — and <em>defection hardens the system</em>.</p>
+
+    <div class="ps-asymmetry">
+      <div class="ps-asym-item">
+        <div class="ps-asym-tag">Asymmetry · 01</div>
+        <div class="ps-asym-name">Tracing has improved</div>
+        <div class="ps-asym-detail">AI-powered chain analysis (Chainalysis, AnChain.AI) operates across 50+ networks. Investigation time has dropped by more than half since 2023. Stolen funds increasingly cannot be liquidated.</div>
+      </div>
+      <div class="ps-asym-item">
+        <div class="ps-asym-tag">Asymmetry · 02</div>
+        <div class="ps-asym-name">eUTXO is more legible</div>
+        <div class="ps-asym-detail">The explicit input/output model makes transaction tracing more straightforward than account-based chains. Every UTXO has a clear provenance chain, end to end.</div>
+      </div>
+      <div class="ps-asym-item">
+        <div class="ps-asym-tag">Asymmetry · 03</div>
+        <div class="ps-asym-name">Agent DIDs add attribution</div>
+        <div class="ps-asym-detail">Soulbound agent DIDs on Vector add an attribution layer that ordinary wallets lack. Registration, operational history, audit trail — all on-chain evidence available to investigators.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Colophon -->
+  <footer class="ps-colophon">
+    <div><span class="brand">AP3X · Fusion</span> &nbsp; · &nbsp; Positive-Sum Games · 2026 Q2</div>
+    <div class="end">
+      <span>apexfusion.org</span>
+      <span>§ 07 / End</span>
+    </div>
+  </footer>
+
+</main>`;
+
+  return e("div", { className: "section-wrap positive-sum-section" },
+    e("style", { dangerouslySetInnerHTML: { __html: css } }),
+    e("div", { dangerouslySetInnerHTML: { __html: html } })
+  );
+}
+
+
 const SECTION_COMPONENTS = {
   overview: OverviewSection,
   news: NewsSection,
@@ -8395,6 +11378,8 @@ const SECTION_COMPONENTS = {
   tachys: TachysSection,
   enterprise: EnterpriseSection,
   vectorEconomy: VectorEconomySection,
+  ephemeral: EphemeralMarketsSection,
+  positiveSum: PositiveSumGamesSection,
   ignition: IgnitionSection
 };
 function App() {
